@@ -1,0 +1,168 @@
+{
+  "name": "08 Approval Router (WP + FB + IG)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publication-approved",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "options": {}
+      },
+      "id": "e8a8e008-0008-4008-8008-000000000001",
+      "name": "Webhook Approval",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "webhookId": "publication-approved"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "publicationId", "value": "={{ $json.body?.publicationId || $json.publicationId }}", "type": "string" },
+            { "id": "2", "name": "event",         "value": "={{ $json.body?.event || $json.event || 'approved' }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e8a8e008-0008-4008-8008-000000000002",
+      "name": "Extract",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "is-approved-now",
+              "leftValue": "={{ $json.event }}",
+              "rightValue": "approved",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e8a8e008-0008-4008-8008-000000000003",
+      "name": "Publish Now?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE publications SET status='publishing' WHERE id='{{ $json.publicationId }}'::uuid RETURNING id;",
+        "options": {}
+      },
+      "id": "e8a8e008-0008-4008-8008-000000000004",
+      "name": "Mark Publishing",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 300],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "mode": "name", "value": "04 Publish WordPress" },
+        "options": {}
+      },
+      "id": "e8a8e008-0008-4008-8008-000000000005",
+      "name": "→ WordPress",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1140, 160]
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "mode": "name", "value": "05 Publish Facebook" },
+        "options": {}
+      },
+      "id": "e8a8e008-0008-4008-8008-000000000006",
+      "name": "→ Facebook",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1140, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "mode": "name", "value": "06 Publish Instagram" },
+        "options": {}
+      },
+      "id": "e8a8e008-0008-4008-8008-000000000007",
+      "name": "→ Instagram",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1140, 440]
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "e8a8e008-0008-4008-8008-000000000008",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE publications\nSET status = 'published',\n    published_at = NOW()\nWHERE id = '{{ $('Extract').item.json.publicationId }}'::uuid\nRETURNING id, status;",
+        "options": {}
+      },
+      "id": "e8a8e008-0008-4008-8008-000000000009",
+      "name": "Mark Published",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1620, 300],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Approval": {
+      "main": [[{ "node": "Extract", "type": "main", "index": 0 }]]
+    },
+    "Extract": {
+      "main": [[{ "node": "Publish Now?", "type": "main", "index": 0 }]]
+    },
+    "Publish Now?": {
+      "main": [
+        [{ "node": "Mark Publishing", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Mark Publishing": {
+      "main": [[
+        { "node": "→ WordPress", "type": "main", "index": 0 },
+        { "node": "→ Facebook", "type": "main", "index": 0 },
+        { "node": "→ Instagram", "type": "main", "index": 0 }
+      ]]
+    },
+    "→ WordPress": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 0 }]]
+    },
+    "→ Facebook": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 1 }]]
+    },
+    "→ Instagram": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 2 }]]
+    },
+    "Merge Results": {
+      "main": [[{ "node": "Mark Published", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": {},
+  "active": false
+}

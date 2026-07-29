@@ -1,0 +1,205 @@
+{
+  "name": "06 Publish Instagram",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c6a6e006-0006-4006-8006-000000000001",
+      "name": "When Called by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT id, ig_caption, hashtags, image_url\nFROM publications WHERE id = '{{ $json.publicationId || $json.id }}'::uuid;",
+        "options": {}
+      },
+      "id": "c6a6e006-0006-4006-8006-000000000002",
+      "name": "Load",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [440, 300],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const item = $input.first().json;\nconst caption = String(item.ig_caption || '').trim();\nconst hashtags = (item.hashtags || []).map(h => '#' + String(h).replace(/^#/, '').replace(/\\s+/g, '')).join(' ');\nconst fullCaption = hashtags ? `${caption}\\n\\n${hashtags}` : caption;\nreturn { ...item, full_caption: fullCaption };"
+      },
+      "id": "c6a6e006-0006-4006-8006-000000000003",
+      "name": "Build Caption",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backoffice:3000/api/image?path={{ encodeURIComponent($json.image_url) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "c6a6e006-0006-4006-8006-000000000004",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [840, 300]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const inp = $input.first();\nreturn {\n  json: inp.json,\n  binary: {\n    data: {\n      ...(inp.binary?.data || {}),\n      fileName: 'image.jpg',\n      fileExtension: 'jpg',\n      mimeType: 'image/jpeg',\n    }\n  }\n};"
+      },
+      "id": "c6a6e006-0006-4006-8006-000000000041",
+      "name": "Set Filename",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://litterbox.catbox.moe/resources/internals/api.php",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "reqtype", "value": "fileupload" },
+            { "name": "time", "value": "24h" },
+            { "parameterType": "formBinaryData", "name": "fileToUpload", "inputDataFieldName": "data" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c6a6e006-0006-4006-8006-000000000005",
+      "name": "Upload to litterbox",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const inp = $input.first();\n// 0x0.st devuelve la URL como texto plano en el body\nlet body;\nif (typeof inp.json === 'string') body = inp.json;\nelse if (inp.json?.data) body = String(inp.json.data);\nelse if (inp.json?.text) body = String(inp.json.text);\nelse body = JSON.stringify(inp.json);\nconst url = body.trim();\nif (!/^https?:\\/\\//.test(url)) {\n  throw new Error('Upload response missing url. Body: ' + body);\n}\nreturn { public_image_url: url };"
+      },
+      "id": "c6a6e006-0006-4006-8006-000000000006",
+      "name": "Extract Public URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v20.0/{{ $env.META_IG_USER_ID }}/media",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "image_url",    "value": "={{ $json.public_image_url }}" },
+            { "name": "caption",      "value": "={{ $('Build Caption').item.json.full_caption }}" },
+            { "name": "access_token", "value": "={{ $env.META_PAGE_ACCESS_TOKEN }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c6a6e006-0006-4006-8006-000000000007",
+      "name": "Create IG Container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "c6a6e006-0006-4006-8006-000000000008",
+      "name": "Wait 5s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1640, 300],
+      "webhookId": "wait-06-ig"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v20.0/{{ $env.META_IG_USER_ID }}/media_publish",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "creation_id",  "value": "={{ $('Create IG Container').item.json.id }}" },
+            { "name": "access_token", "value": "={{ $env.META_PAGE_ACCESS_TOKEN }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c6a6e006-0006-4006-8006-000000000009",
+      "name": "Publish IG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1840, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE publications\nSET ig_post_id  = '{{ String($json.id).replace(/'/g, \"''\") }}',\n    ig_post_url = 'https://www.instagram.com/p/' || '{{ String($json.id).replace(/'/g, \"''\") }}'\nWHERE id = '{{ $('When Called by Another Workflow').item.json.publicationId || $('When Called by Another Workflow').item.json.id }}'::uuid RETURNING id;",
+        "options": {}
+      },
+      "id": "c6a6e006-0006-4006-8006-000000000010",
+      "name": "Save IG IDs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2040, 300],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    }
+  ],
+  "connections": {
+    "When Called by Another Workflow": {
+      "main": [[{ "node": "Load", "type": "main", "index": 0 }]]
+    },
+    "Load": {
+      "main": [[{ "node": "Build Caption", "type": "main", "index": 0 }]]
+    },
+    "Build Caption": {
+      "main": [[{ "node": "Download Image", "type": "main", "index": 0 }]]
+    },
+    "Download Image": {
+      "main": [[{ "node": "Set Filename", "type": "main", "index": 0 }]]
+    },
+    "Set Filename": {
+      "main": [[{ "node": "Upload to litterbox", "type": "main", "index": 0 }]]
+    },
+    "Upload to litterbox": {
+      "main": [[{ "node": "Extract Public URL", "type": "main", "index": 0 }]]
+    },
+    "Extract Public URL": {
+      "main": [[{ "node": "Create IG Container", "type": "main", "index": 0 }]]
+    },
+    "Create IG Container": {
+      "main": [[{ "node": "Wait 5s", "type": "main", "index": 0 }]]
+    },
+    "Wait 5s": {
+      "main": [[{ "node": "Publish IG", "type": "main", "index": 0 }]]
+    },
+    "Publish IG": {
+      "main": [[{ "node": "Save IG IDs", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": {},
+  "active": false
+}

@@ -1,0 +1,71 @@
+{
+  "name": "07 Scheduled Publisher",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 1 }] }
+      },
+      "id": "b7a7e007-0007-4007-8007-000000000001",
+      "name": "Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE publications\nSET status = 'publishing'\nWHERE id IN (\n  SELECT id FROM publications\n  WHERE status = 'scheduled' AND scheduled_at <= NOW()\n  ORDER BY scheduled_at\n  LIMIT 20\n  FOR UPDATE SKIP LOCKED\n)\nRETURNING id;",
+        "options": {}
+      },
+      "id": "b7a7e007-0007-4007-8007-000000000002",
+      "name": "Claim Due",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [480, 300],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "publicationId", "value": "={{ $json.id }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b7a7e007-0007-4007-8007-000000000003",
+      "name": "Prepare Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "mode": "name", "value": "08 Approval Router" },
+        "options": {}
+      },
+      "id": "b7a7e007-0007-4007-8007-000000000004",
+      "name": "Fan-out to Publishers",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [960, 300]
+    }
+  ],
+  "connections": {
+    "Every Minute": {
+      "main": [[{ "node": "Claim Due", "type": "main", "index": 0 }]]
+    },
+    "Claim Due": {
+      "main": [[{ "node": "Prepare Payload", "type": "main", "index": 0 }]]
+    },
+    "Prepare Payload": {
+      "main": [[{ "node": "Fan-out to Publishers", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": {},
+  "active": false
+}

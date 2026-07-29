@@ -1,0 +1,135 @@
+{
+  "name": "04 Publish WordPress",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b4a4e004-0004-4004-8004-000000000001",
+      "name": "When Called by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT id, wp_title, wp_body_html, wp_excerpt, wp_category, wp_categories, wp_tags, image_url\nFROM publications WHERE id = '{{ $json.publicationId || $json.id }}'::uuid;",
+        "options": {}
+      },
+      "id": "b4a4e004-0004-4004-8004-000000000002",
+      "name": "Load",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [440, 300],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const item = $input.first().json;\nconst base = $env.WP_INTERNAL_URL || 'http://wordpress';\nconst user = $env.WP_APP_USER || 'admin';\nconst pass = ($env.WP_APP_PASSWORD || '').replace(/\\s+/g, '');\nconst authHeader = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');\n\nconst wpReq = async (path, opts = {}) => {\n  try {\n    return await this.helpers.httpRequest({\n      method: opts.method || 'GET',\n      url: base + '/?rest_route=' + path,\n      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },\n      body: opts.body,\n      json: true,\n      returnFullResponse: false,\n    });\n  } catch (err) {\n    const status = err.httpCode || err.statusCode || 'ERR';\n    const body = err.cause?.error || err.response?.body || err.message;\n    throw new Error(`WP ${status} ${path}: ${JSON.stringify(body)}`);\n  }\n};\n\nconst slugify = (s) => String(s).toLowerCase()\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n  .replace(/&/g, ' y ')\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-+|-+$/g, '');\n\nconst resolveIds = async (kind, names, createIfMissing) => {\n  const ids = [];\n  const notFound = [];\n  for (const raw of names || []) {\n    const name = String(raw).trim();\n    if (!name) continue;\n    const slug = slugify(name);\n    let found = await wpReq(`/wp/v2/${kind}&slug=${encodeURIComponent(slug)}`);\n    if (!Array.isArray(found) || found.length === 0) {\n      found = await wpReq(`/wp/v2/${kind}&search=${encodeURIComponent(name)}`);\n    }\n    if (Array.isArray(found) && found.length > 0) {\n      ids.push(found[0].id);\n      continue;\n    }\n    if (createIfMissing) {\n      const created = await wpReq(`/wp/v2/${kind}`, {\n        method: 'POST',\n        headers: { Authorization: authHeader },\n        body: { name, slug },\n      });\n      ids.push(created.id);\n    } else {\n      notFound.push(name);\n    }\n  }\n  return { ids, notFound };\n};\n\nconst cats = await resolveIds('categories', item.wp_categories, false);\nconst tags = await resolveIds('tags', item.wp_tags, true);\n\nreturn {\n  ...item,\n  category_ids: cats.ids,\n  tag_ids: tags.ids,\n  categories_not_found: cats.notFound,\n  filename: (slugify(item.wp_title) || 'featured') + '.jpg',\n};\n"
+      },
+      "id": "b4a4e004-0004-4004-8004-000000000003",
+      "name": "Resolve Taxonomy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backoffice:3000/api/image?path={{ encodeURIComponent($json.image_url) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "b4a4e004-0004-4004-8004-000000000004",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [840, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://wordpress/?rest_route=/wp/v2/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "image/jpeg" },
+            { "name": "Content-Disposition", "value": "=attachment; filename=\"{{ $('Resolve Taxonomy').item.json.filename }}\"" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b4a4e004-0004-4004-8004-000000000005",
+      "name": "Upload Media",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, 300],
+      "credentials": {
+        "httpBasicAuth": { "id": "REPLACE_WITH_WP_CRED_ID", "name": "WordPress Basic" }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const taxonomy = $('Resolve Taxonomy').first().json;\nconst media = $input.first().json;\nconst base = $env.WP_INTERNAL_URL || 'http://wordpress';\nconst user = $env.WP_APP_USER || 'admin';\nconst pass = ($env.WP_APP_PASSWORD || '').replace(/\\s+/g, '');\nconst authHeader = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');\n\ntry {\n  const post = await this.helpers.httpRequest({\n    method: 'POST',\n    url: base + '/?rest_route=/wp/v2/posts',\n    headers: {\n      'Content-Type': 'application/json',\n      Authorization: authHeader,\n    },\n    body: {\n      title: taxonomy.wp_title,\n      content: taxonomy.wp_body_html,\n      excerpt: taxonomy.wp_excerpt || '',\n      status: 'publish',\n      categories: taxonomy.category_ids,\n      tags: taxonomy.tag_ids,\n      ...(media && media.id ? { featured_media: media.id } : {}),\n    },\n    json: true,\n    returnFullResponse: false,\n  });\n  return {\n    id: post.id,\n    link: post.link,\n    slug: post.slug,\n    featured_media_id: media?.id || null,\n    categories_resolved: taxonomy.category_ids,\n    tags_resolved: taxonomy.tag_ids,\n    categories_not_found: taxonomy.categories_not_found,\n  };\n} catch (err) {\n  const status = err.httpCode || err.statusCode || 'ERR';\n  const body = err.cause?.error || err.response?.body || err.message;\n  throw new Error(`WP ${status} create post: ${JSON.stringify(body)}`);\n}\n"
+      },
+      "id": "b4a4e004-0004-4004-8004-000000000006",
+      "name": "Create Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE publications\nSET wp_post_id = '{{ String($json.id).replace(/'/g, \"''\") }}', wp_post_url = '{{ String($json.link).replace(/'/g, \"''\") }}'\nWHERE id = '{{ $('When Called by Another Workflow').item.json.publicationId || $('When Called by Another Workflow').item.json.id }}'::uuid RETURNING id;",
+        "options": {}
+      },
+      "id": "b4a4e004-0004-4004-8004-000000000007",
+      "name": "Save WP IDs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1440, 300],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    }
+  ],
+  "connections": {
+    "When Called by Another Workflow": {
+      "main": [[{ "node": "Load", "type": "main", "index": 0 }]]
+    },
+    "Load": {
+      "main": [[{ "node": "Resolve Taxonomy", "type": "main", "index": 0 }]]
+    },
+    "Resolve Taxonomy": {
+      "main": [[{ "node": "Download Image", "type": "main", "index": 0 }]]
+    },
+    "Download Image": {
+      "main": [[{ "node": "Upload Media", "type": "main", "index": 0 }]]
+    },
+    "Upload Media": {
+      "main": [[{ "node": "Create Post", "type": "main", "index": 0 }]]
+    },
+    "Create Post": {
+      "main": [[{ "node": "Save WP IDs", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": {},
+  "active": false
+}

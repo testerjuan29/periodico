@@ -1,0 +1,79 @@
+{
+  "name": "01 Ingest Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "email-inbound",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "options": {}
+      },
+      "id": "b1a1e001-0001-4001-8001-000000000001",
+      "name": "Webhook Email",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "webhookId": "email-inbound"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "sender",  "value": "={{ $json.body.sender || $json.body.From || $json.body.from }}", "type": "string" },
+            { "id": "2", "name": "subject", "value": "={{ $json.body.subject || $json.body.Subject }}", "type": "string" },
+            { "id": "3", "name": "text",    "value": "={{ $json.body['stripped-text'] || $json.body['body-plain'] || $json.body.TextBody || $json.body.text }}", "type": "string" },
+            { "id": "4", "name": "media",   "value": "={{ $json.body.attachments || $json.body.Attachments || [] }}", "type": "array" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1a1e001-0001-4001-8001-000000000002",
+      "name": "Normalize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO publications (source_type, source_raw, source_sender, source_subject, source_text, source_media)\nVALUES ('email', '{{ JSON.stringify($('Webhook Email').item.json.body).replace(/'/g, \"''\") }}'::jsonb, '{{ String($json.sender).replace(/'/g, \"''\") }}', '{{ String($json.subject).replace(/'/g, \"''\") }}', '{{ String($json.text).replace(/'/g, \"''\") }}', '{{ JSON.stringify($json.media).replace(/'/g, \"''\") }}'::jsonb)\nRETURNING id;",
+        "options": {}
+      },
+      "id": "b1a1e001-0001-4001-8001-000000000003",
+      "name": "Insert Publication",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [720, 300],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "mode": "name", "value": "03 Generate Content" },
+        "options": {}
+      },
+      "id": "b1a1e001-0001-4001-8001-000000000004",
+      "name": "Trigger Generate Content",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [960, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Email": {
+      "main": [[{ "node": "Normalize", "type": "main", "index": 0 }]]
+    },
+    "Normalize": {
+      "main": [[{ "node": "Insert Publication", "type": "main", "index": 0 }]]
+    },
+    "Insert Publication": {
+      "main": [[{ "node": "Trigger Generate Content", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": {},
+  "active": false
+}

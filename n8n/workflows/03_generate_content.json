@@ -1,0 +1,169 @@
+{
+  "name": "03 Generate Content",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b3a3e003-0003-4003-8003-000000000001",
+      "name": "When Called by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT id, source_sender, source_subject, source_text, source_media, received_at\nFROM publications\nWHERE id = '{{ $json.id }}'::uuid;",
+        "options": {}
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000002",
+      "name": "Load Publication",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [480, 300],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-ap-southeast-1.modelarts-maas.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"DeepSeek-V3.2\",\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres redactor de PaginaUno.Do, principal diario digital de la República Dominicana. Escribes en español dominicano formal, tono institucional, estilo de agencia de noticias. Recibes un mensaje crudo (correo o WhatsApp) y redactas la misma noticia adaptada a tres formatos: WordPress (nota), Facebook (post) e Instagram (caption). Devuelves SIEMPRE JSON estricto con este esquema exacto:\\n{\\n  \\\"wp_title\\\": string (máx 110 chars, titular periodístico neutro y descriptivo, sin puntuación final, sin sensacionalismo),\\n  \\\"wp_body_html\\\": string (HTML SOLO con <p>. NO usar <h2>, <h3> ni subtítulos. 8-12 párrafos, 500-700 palabras, pirámide invertida. El primer párrafo debe iniciar con la ciudad seguida de punto, espacio, guion largo y espacio: 'Santo Domingo. – Texto...'. Usar comillas para citas literales de fuentes. Atribuir siempre las citas ('explicó', 'informó', 'indicó', 'destacó', 'aseguró')),\\n  \\\"wp_excerpt\\\": string (máx 200 chars, resumen para SEO),\\n  \\\"wp_categories\\\": string[] (2-4 categorías del catálogo de PaginaUno.Do; usar nombres exactos como 'Actualidad', 'Nacionales', 'Internacionales', 'Política', 'Economía', 'Farándula', 'Tecnología', 'Ciencia', 'Estilo de Vida', 'Opinión', 'Salud', 'Justicia', 'Policiales', 'Deportes', 'Turismo', 'Alimentación', 'Entretenimiento'. Incluir siempre 'Actualidad' si aplica. Si la noticia menciona una ciudad o provincia dominicana, incluirla como categoría (Santo Domingo, Baní, Barahona, Bonao, Azua, Boca Chica, etc.). Si menciona un país extranjero, incluir el país),\\n  \\\"wp_tags\\\": string[] (5-10 etiquetas específicas: nombres propios, instituciones, cargos, leyes citadas. Formato Capitalizado. Ej: ['Luis Abinader', 'Ministerio Público', 'Policía Nacional', 'Ley 3-19']. NO son hashtags),\\n  \\\"fb_caption\\\": string (2-4 párrafos, tono más cercano que el artículo pero manteniendo formalidad, cierra invitando a leer la nota completa),\\n  \\\"ig_caption\\\": string (máx 2200 chars, párrafo enganchador con voz activa; NO incluir hashtags aquí),\\n  \\\"hashtags\\\": string[] (5-8 hashtags para Instagram SIN el símbolo #, minúsculas, sin espacios ni tildes, específicos al tema. Ej: ['paginaunodo', 'republicadominicana', 'santodomingo'])\\n}\\nReglas críticas: nunca inventes hechos, datos, cifras, cargos ni fechas que no estén explícitos en el mensaje. Si falta información clave, redacta con lo disponible y no rellenes con especulación. No uses sensacionalismo ni adjetivos calificativos ('impactante', 'terrible'). Prefiere verbos en pretérito indefinido para hechos y presente para citas.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Fuente: {{ $('Load Publication').item.json.source_sender }}\\nAsunto: {{ $('Load Publication').item.json.source_subject || '(sin asunto)' }}\\nRecibido: {{ $('Load Publication').item.json.received_at }}\\n\\n--- Mensaje ---\\n{{ $('Load Publication').item.json.source_text }}\"\n    }\n  ],\n  \"temperature\": 0.3\n}",
+        "options": {}
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000003",
+      "name": "DeepSeek 3-in-1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_DEEPSEEK_CRED_ID", "name": "DeepSeek Bearer" }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const raw = $input.first().json.choices[0].message.content;\nconst clean = raw.replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '').trim();\nreturn { content: JSON.parse(clean) };"
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000004",
+      "name": "Parse JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://image-renderer:3001/render",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"template\": \"article\",\n  \"vars\": {\n    \"title\": \"{{ $json.content.wp_title }}\",\n    \"category\": \"{{ $json.content.wp_category }}\",\n    \"date\": \"{{ $now.format('dd LLL yyyy') }}\",\n    \"image_url\": \"https://picsum.photos/1080/720\"\n  },\n  \"width\": 1080,\n  \"height\": 1080\n}",
+        "options": {}
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000005",
+      "name": "Render Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE publications SET\n  wp_title      = '{{ String($('Parse JSON').item.json.content.wp_title).replace(/'/g, \"''\") }}',\n  wp_body_html  = '{{ String($('Parse JSON').item.json.content.wp_body_html).replace(/'/g, \"''\") }}',\n  wp_excerpt    = '{{ String($('Parse JSON').item.json.content.wp_excerpt).replace(/'/g, \"''\") }}',\n  wp_categories = ARRAY[{{ ($('Parse JSON').item.json.content.wp_categories || []).map(c => \"'\" + String(c).replace(/'/g, \"''\") + \"'\").join(',') }}]::text[],\n  wp_tags       = ARRAY[{{ ($('Parse JSON').item.json.content.wp_tags || []).map(t => \"'\" + String(t).replace(/'/g, \"''\") + \"'\").join(',') }}]::text[],\n  fb_caption    = '{{ String($('Parse JSON').item.json.content.fb_caption).replace(/'/g, \"''\") }}',\n  ig_caption    = '{{ String($('Parse JSON').item.json.content.ig_caption).replace(/'/g, \"''\") }}',\n  hashtags      = ARRAY[{{ ($('Parse JSON').item.json.content.hashtags || []).map(h => \"'\" + String(h).replace(/'/g, \"''\") + \"'\").join(',') }}]::text[],\n  image_url     = '{{ String($json.url).replace(/'/g, \"''\") }}',\n  status        = 'pending'\nWHERE id = '{{ $('When Called by Another Workflow').item.json.id }}'::uuid\nRETURNING id, status;",
+        "options": {}
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000006",
+      "name": "Update Publication",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1440, 300],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "has-sender",
+              "leftValue": "={{ $('Load Publication').item.json.source_sender }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            },
+            {
+              "id": "is-whatsapp",
+              "leftValue": "={{ $('Load Publication').item.json.source_type }}",
+              "rightValue": "whatsapp",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000007",
+      "name": "Is WhatsApp sender?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v20.0/{{ $env.WA_PHONE_NUMBER_ID }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.META_PAGE_ACCESS_TOKEN }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $('Load Publication').item.json.source_sender }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"body\": {{ JSON.stringify('📰 Nueva publicación pendiente de aprobación:\\n\\n' + $('Parse JSON').item.json.content.wp_title + '\\n\\nRevísala y apruébala aquí:\\n' + ($env.BACKOFFICE_PUBLIC_URL || 'http://localhost:3000') + '/publication/' + $('When Called by Another Workflow').item.json.id) }}\n  }\n}",
+        "options": {}
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000008",
+      "name": "Notify Sender via WA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 220]
+    }
+  ],
+  "connections": {
+    "When Called by Another Workflow": {
+      "main": [[{ "node": "Load Publication", "type": "main", "index": 0 }]]
+    },
+    "Load Publication": {
+      "main": [[{ "node": "DeepSeek 3-in-1", "type": "main", "index": 0 }]]
+    },
+    "DeepSeek 3-in-1": {
+      "main": [[{ "node": "Parse JSON", "type": "main", "index": 0 }]]
+    },
+    "Parse JSON": {
+      "main": [[{ "node": "Render Image", "type": "main", "index": 0 }]]
+    },
+    "Render Image": {
+      "main": [[{ "node": "Update Publication", "type": "main", "index": 0 }]]
+    },
+    "Update Publication": {
+      "main": [[{ "node": "Is WhatsApp sender?", "type": "main", "index": 0 }]]
+    },
+    "Is WhatsApp sender?": {
+      "main": [
+        [{ "node": "Notify Sender via WA", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": {},
+  "active": false
+}

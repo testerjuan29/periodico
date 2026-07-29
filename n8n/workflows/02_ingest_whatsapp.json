@@ -1,0 +1,177 @@
+{
+  "name": "02 Ingest WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "whatsapp-inbound",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000010",
+      "name": "Webhook Verify (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 140],
+      "webhookId": "whatsapp-inbound-verify"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "token-matches",
+              "leftValue": "={{ $json.query['hub.verify_token'] }}",
+              "rightValue": "={{ $env.WA_VERIFY_TOKEN }}",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000011",
+      "name": "Token Matches?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [460, 140]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $('Webhook Verify (GET)').item.json.query['hub.challenge'] }}",
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000012",
+      "name": "Respond Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 60]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseCode": 403,
+        "responseBody": "Verify token mismatch",
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000013",
+      "name": "Respond 403",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 220]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-inbound",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000001",
+      "name": "Webhook WhatsApp",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 420],
+      "webhookId": "whatsapp-inbound"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-message",
+              "leftValue": "={{ $json.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000002",
+      "name": "Is Inbound Message",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [460, 420]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "sender", "value": "={{ $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].from }}", "type": "string" },
+            { "id": "2", "name": "type",   "value": "={{ $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].type }}", "type": "string" },
+            { "id": "3", "name": "text",   "value": "={{ (() => { const m = $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0]; return m.text?.body || m.image?.caption || m.video?.caption || m.document?.caption || ''; })() }}", "type": "string" },
+            { "id": "4", "name": "media",  "value": "={{ $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].image || $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].video || $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].document || {} }}", "type": "object" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000003",
+      "name": "Normalize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [680, 360]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO publications (source_type, source_raw, source_sender, source_text, source_media)\nVALUES ('whatsapp', '{{ JSON.stringify($('Webhook WhatsApp').item.json.body).replace(/'/g, \"''\") }}'::jsonb, '{{ String($json.sender).replace(/'/g, \"''\") }}', '{{ String($json.text).replace(/'/g, \"''\") }}', '{{ JSON.stringify($json.media).replace(/'/g, \"''\") }}'::jsonb)\nRETURNING id;",
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000004",
+      "name": "Insert Publication",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 360],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "mode": "name", "value": "03 Generate Content" },
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000005",
+      "name": "Trigger Generate Content",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1120, 360]
+    }
+  ],
+  "connections": {
+    "Webhook Verify (GET)": {
+      "main": [[{ "node": "Token Matches?", "type": "main", "index": 0 }]]
+    },
+    "Token Matches?": {
+      "main": [
+        [{ "node": "Respond Challenge", "type": "main", "index": 0 }],
+        [{ "node": "Respond 403", "type": "main", "index": 0 }]
+      ]
+    },
+    "Webhook WhatsApp": {
+      "main": [[{ "node": "Is Inbound Message", "type": "main", "index": 0 }]]
+    },
+    "Is Inbound Message": {
+      "main": [
+        [{ "node": "Normalize", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Normalize": {
+      "main": [[{ "node": "Insert Publication", "type": "main", "index": 0 }]]
+    },
+    "Insert Publication": {
+      "main": [[{ "node": "Trigger Generate Content", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": {},
+  "active": false
+}
