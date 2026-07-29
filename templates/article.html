@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{title}}</title>
+  <style>
+    :root {
+      --brand: #b91c1c;
+      --ink: #111827;
+      --paper: #ffffff;
+      --muted: #6b7280;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 1080px;
+      height: 1080px;
+      font-family: 'Georgia', serif;
+      background: var(--paper);
+      color: var(--ink);
+    }
+    .canvas {
+      position: relative;
+      width: 1080px;
+      height: 1080px;
+      display: flex;
+      flex-direction: column;
+    }
+    .hero {
+      flex: 1;
+      background-image: url('{{image_url}}');
+      background-size: cover;
+      background-position: center;
+      position: relative;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 100%);
+    }
+    .headline {
+      position: absolute;
+      bottom: 220px;
+      left: 60px;
+      right: 60px;
+      z-index: 2;
+      color: white;
+    }
+    .kicker {
+      display: inline-block;
+      background: var(--brand);
+      color: white;
+      font-family: 'Arial', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 8px 16px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 58px;
+      line-height: 1.1;
+      font-weight: 700;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    }
+    .footer {
+      height: 180px;
+      background: var(--ink);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 60px;
+      border-top: 8px solid var(--brand);
+    }
+    .brand {
+      font-family: 'Arial Black', 'Arial', sans-serif;
+      font-size: 44px;
+      letter-spacing: -1px;
+    }
+    .brand span { color: var(--brand); }
+    .meta {
+      text-align: right;
+      font-family: 'Arial', sans-serif;
+    }
+    .meta .date { font-size: 20px; opacity: 0.75; }
+    .meta .handle { font-size: 24px; font-weight: 700; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="hero">
+      <div class="headline">
+        <span class="kicker">{{category}}</span>
+        <h1>{{title}}</h1>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="brand">EL <span>PERIÓDICO</span></div>
+      <div class="meta">
+        <div class="date">{{date}}</div>
+        <div class="handle">@elperiodico</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

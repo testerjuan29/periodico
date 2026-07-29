@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Ojo: el schema real vive en db/init.sql y lo administra el DBA.
+// Prisma aquí lo espeja para tipar consultas desde el backoffice.
+
+model Publication {
+  id             String    @id @default(uuid()) @db.Uuid
+  sourceType     String    @map("source_type")
+  sourceRaw      Json      @map("source_raw")
+  sourceSender   String?   @map("source_sender")
+  sourceSubject  String?   @map("source_subject")
+  sourceText     String?   @map("source_text")
+  sourceMedia    Json?     @map("source_media")
+  receivedAt     DateTime  @default(now()) @map("received_at")
+
+  wpTitle        String?   @map("wp_title")
+  wpBodyHtml     String?   @map("wp_body_html")
+  wpExcerpt      String?   @map("wp_excerpt")
+  wpCategory     String?   @map("wp_category")
+  wpCategories   String[]  @map("wp_categories")
+  wpTags         String[]  @map("wp_tags")
+  fbCaption      String?   @map("fb_caption")
+  igCaption      String?   @map("ig_caption")
+  hashtags       String[]
+
+  imageUrl       String?   @map("image_url")
+  imageMeta      Json?     @map("image_meta")
+
+  status         String    @default("pending")
+  scheduledAt    DateTime? @map("scheduled_at")
+  approvedBy     String?   @map("approved_by")
+  approvedAt     DateTime? @map("approved_at")
+  rejectedReason String?   @map("rejected_reason")
+
+  wpPostId       String?   @map("wp_post_id")
+  wpPostUrl      String?   @map("wp_post_url")
+  fbPostId       String?   @map("fb_post_id")
+  fbPostUrl      String?   @map("fb_post_url")
+  igPostId       String?   @map("ig_post_id")
+  igPostUrl      String?   @map("ig_post_url")
+  publishErrors  Json?     @map("publish_errors")
+  publishedAt    DateTime? @map("published_at")
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  auditEntries   AuditLog[]
+
+  @@index([status])
+  @@index([receivedAt(sort: Desc)])
+  @@map("publications")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  name      String?
+  role      String   @default("viewer")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model AuditLog {
+  id            String       @id @default(uuid()) @db.Uuid
+  publicationId String?      @map("publication_id") @db.Uuid
+  publication   Publication? @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  actorEmail    String?      @map("actor_email")
+  action        String
+  payload       Json?
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@index([publicationId])
+  @@map("audit_log")
+}

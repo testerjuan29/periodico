@@ -1,0 +1,161 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pa_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - pa_net
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: pa_n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${N8N_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD}
+      N8N_HOST: ${N8N_HOST}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL}
+      GENERIC_TIMEZONE: ${TZ}
+      TZ: ${TZ}
+      # Permitir a Code nodes leer env vars via $env (necesario para el workflow 04)
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      # Credenciales que consumen los workflows
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      # WP local (para resolver categorías/tags → IDs y crear tags nuevos)
+      WP_INTERNAL_URL: http://wordpress
+      WP_APP_USER: ${WP_LOCAL_USER}
+      WP_APP_PASSWORD: ${WP_LOCAL_APP_PASSWORD}
+      # WhatsApp Cloud API (webhook de Meta verifica este token)
+      WA_VERIFY_TOKEN: ${WA_VERIFY_TOKEN}
+      # WhatsApp Cloud API — enviar mensajes salientes (usa META_PAGE_ACCESS_TOKEN)
+      WA_PHONE_NUMBER_ID: ${WA_PHONE_NUMBER_ID}
+      # URL pública del backoffice (para links en notificaciones)
+      BACKOFFICE_PUBLIC_URL: ${BACKOFFICE_PUBLIC_URL}
+      # Meta Graph API (Facebook Page + IG Business)
+      META_PAGE_ID: ${META_PAGE_ID}
+      META_PAGE_ACCESS_TOKEN: ${META_PAGE_ACCESS_TOKEN}
+      META_IG_USER_ID: ${META_IG_USER_ID}
+      IMAGE_RENDERER_URL: http://image-renderer:3001
+      BACKOFFICE_INTERNAL_URL: http://backoffice:3000
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
+      - ./templates:/templates:ro
+    networks:
+      - pa_net
+
+  wp_db:
+    image: mariadb:11
+    container_name: pa_wp_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${WP_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: ${WP_DB_PASSWORD}
+    volumes:
+      - wp_db_data:/var/lib/mysql
+    networks:
+      - pa_net
+
+  wordpress:
+    image: wordpress:6.6-php8.3-apache
+    container_name: pa_wordpress
+    restart: unless-stopped
+    depends_on:
+      - wp_db
+    environment:
+      WORDPRESS_DB_HOST: wp_db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: ${WP_DB_PASSWORD}
+      WORDPRESS_DB_NAME: wordpress
+      # Permite Application Passwords sobre HTTP en desarrollo local
+      WORDPRESS_CONFIG_EXTRA: |
+        define( 'WP_ENVIRONMENT_TYPE', 'local' );
+    ports:
+      - "8080:80"
+    volumes:
+      - wp_data:/var/www/html
+    networks:
+      - pa_net
+
+  image-renderer:
+    build:
+      context: ./image-renderer
+      dockerfile: Dockerfile
+    container_name: pa_image_renderer
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      TEMPLATES_DIR: /templates
+      OUTPUT_DIR: /output
+    volumes:
+      - ./templates:/templates:ro
+      - image_output:/output
+    ports:
+      - "3001:3001"
+    networks:
+      - pa_net
+
+  backoffice:
+    build:
+      context: ./backoffice
+      dockerfile: Dockerfile
+    container_name: pa_backoffice
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      NEXTAUTH_URL: ${BACKOFFICE_PUBLIC_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      # Webhook al que el backoffice avisa a N8N cuando el cliente aprueba una publicación
+      N8N_APPROVAL_WEBHOOK: ${N8N_APPROVAL_WEBHOOK}
+      IMAGE_OUTPUT_MOUNT: /image-output
+    ports:
+      - "3000:3000"
+    volumes:
+      - image_output:/image-output:ro
+    networks:
+      - pa_net
+
+volumes:
+  postgres_data:
+  n8n_data:
+  wp_db_data:
+  wp_data:
+  image_output:
+
+networks:
+  pa_net:
+    driver: bridge
