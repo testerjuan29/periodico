@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { FileText, Facebook, Instagram } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { cn, slugify } from '@/lib/utils';
 
 type Props = {
   wpTitle: string | null;
@@ -12,107 +14,178 @@ type Props = {
   igCaption: string | null;
   hashtags: string[];
   imageUrl: string | null;
+  /** Controlado desde afuera cuando el panel de triage maneja los atajos 1/2/3. */
+  value?: string;
+  onValueChange?: (v: string) => void;
 };
 
-const tabs = [
-  { id: 'wordpress', label: 'WordPress' },
-  { id: 'facebook', label: 'Facebook' },
-  { id: 'instagram', label: 'Instagram' },
-] as const;
-
-type TabId = (typeof tabs)[number]['id'];
-
-export function PreviewTabs(props: Props) {
-  const [active, setActive] = useState<TabId>('wordpress');
+export function PreviewTabs(props: Readonly<Props>) {
   const imgSrc = props.imageUrl
     ? `/api/image?path=${encodeURIComponent(props.imageUrl)}`
     : null;
 
   return (
-    <div>
-      <div className="flex gap-1 border-b">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActive(t.id)}
-            className={`px-4 py-2 text-sm font-medium transition ${
-              active === t.id
-                ? 'border-b-2 border-brand text-brand'
-                : 'text-gray-500 hover:text-gray-800'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+    <Tabs
+      defaultValue="wordpress"
+      value={props.value}
+      onValueChange={props.onValueChange}
+      className="w-full"
+    >
+      {/* Segmentado centrado, con el atajo visible en cada pestaña */}
+      <div className="flex justify-center">
+        <TabsList>
+          <TabsTrigger value="wordpress">
+            <FileText className="h-3.5 w-3.5" />
+            WordPress
+            <TabKbd>1</TabKbd>
+          </TabsTrigger>
+          <TabsTrigger value="facebook">
+            <Facebook className="h-3.5 w-3.5" />
+            Facebook
+            <TabKbd>2</TabKbd>
+          </TabsTrigger>
+          <TabsTrigger value="instagram">
+            <Instagram className="h-3.5 w-3.5" />
+            Instagram
+            <TabKbd>3</TabKbd>
+          </TabsTrigger>
+        </TabsList>
       </div>
 
-      <div className="mt-6">
-        {active === 'wordpress' && (
-          <article className="rounded-lg border bg-white p-6 shadow-sm">
-            {imgSrc && <img src={imgSrc} alt="" className="mb-6 w-full rounded" />}
-            {props.wpCategories?.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2">
-                {props.wpCategories.map((c) => (
-                  <span key={c} className="rounded bg-brand/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-brand">
-                    {c}
-                  </span>
-                ))}
-              </div>
-            )}
-            <h1 className="mb-4 font-serif text-2xl font-bold">{props.wpTitle ?? '—'}</h1>
-            {props.wpExcerpt && (
-              <p className="mb-6 border-l-4 border-brand pl-4 text-lg italic text-gray-700">
-                {props.wpExcerpt}
-              </p>
-            )}
-            <div
-              className="prose max-w-none"
-              dangerouslySetInnerHTML={{ __html: props.wpBodyHtml ?? '' }}
-            />
-            {props.wpTags?.length > 0 && (
-              <div className="mt-6 flex flex-wrap gap-2 border-t pt-4">
-                <span className="text-xs font-semibold uppercase text-gray-500">Etiquetas:</span>
-                {props.wpTags.map((t) => (
-                  <span key={t} className="rounded border bg-gray-50 px-2 py-0.5 text-xs text-gray-700">
-                    {t}
-                  </span>
-                ))}
-              </div>
-            )}
-          </article>
-        )}
+      <TabsContent value="wordpress">
+        <WordPressPreview {...props} imgSrc={imgSrc} />
+      </TabsContent>
 
-        {active === 'facebook' && (
-          <div className="max-w-lg rounded-lg border bg-white shadow-sm">
-            <div className="flex items-center gap-3 p-4">
-              <div className="h-10 w-10 rounded-full bg-brand" />
-              <div>
-                <div className="text-sm font-semibold">El Periódico</div>
-                <div className="text-xs text-gray-500">Ahora · 🌐</div>
-              </div>
-            </div>
-            <div className="whitespace-pre-wrap px-4 pb-3 text-sm">{props.fbCaption ?? '—'}</div>
-            {imgSrc && <img src={imgSrc} alt="" className="w-full" />}
-          </div>
-        )}
+      <TabsContent value="facebook">
+        <FacebookPreview {...props} imgSrc={imgSrc} />
+      </TabsContent>
 
-        {active === 'instagram' && (
-          <div className="max-w-md rounded-lg border bg-white shadow-sm">
-            <div className="flex items-center gap-3 border-b p-3">
-              <div className="h-8 w-8 rounded-full bg-brand" />
-              <div className="text-sm font-semibold">elperiodico</div>
-            </div>
-            {imgSrc && <img src={imgSrc} alt="" className="aspect-square w-full object-cover" />}
-            <div className="p-3">
-              <div className="whitespace-pre-wrap text-sm">
-                <span className="font-semibold">elperiodico</span> {props.igCaption ?? '—'}
-              </div>
-              {props.hashtags?.length > 0 && (
-                <div className="mt-2 text-sm text-blue-900">
-                  {props.hashtags.map((h) => `#${h}`).join(' ')}
-                </div>
-              )}
-            </div>
+      <TabsContent value="instagram">
+        <InstagramPreview {...props} imgSrc={imgSrc} />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function TabKbd({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <kbd className="rounded-sm bg-ink/[0.06] px-1 font-mono text-micro font-semibold text-muted">
+      {children}
+    </kbd>
+  );
+}
+
+function WordPressPreview({
+  wpTitle, wpBodyHtml, wpExcerpt, wpCategories, wpTags, imgSrc,
+}: Props & { imgSrc: string | null }) {
+  const slug = wpTitle ? slugify(wpTitle) : '';
+  return (
+    // Marco de navegador: deja claro que esto es "lo que se va a publicar",
+    // no un formulario más. Medida editorial: máx 760px de columna.
+    <div className="mx-auto max-w-[780px] overflow-hidden rounded-lg border border-ink/10 bg-surface shadow-elevated">
+      <div className="flex items-center gap-2.5 border-b border-divider bg-subtle px-3.5 py-2">
+        <span className="h-2 w-2 rounded-full bg-[#E0685E]" aria-hidden />
+        <span className="h-2 w-2 rounded-full bg-[#E5B84B]" aria-hidden />
+        <span className="h-2 w-2 rounded-full bg-[#6FBF95]" aria-hidden />
+        <span className="mx-auto min-w-0 max-w-[75%] truncate rounded-full bg-surface px-4 py-0.5 text-center font-mono text-label text-muted ring-1 ring-divider">
+          <span className="font-medium text-ink/70">paginauno.do</span>/{slug || '…'}
+        </span>
+      </div>
+      <article className="p-8">
+      {imgSrc && (
+        // La imagen es 1:1 (1080×1080). Sin tope de altura, en un panel ancho
+        // ocupaba toda la pantalla y empujaba el titular fuera de vista.
+        <div className="mb-8 flex justify-center overflow-hidden rounded-md bg-subtle/60 p-3">
+          <img
+            src={imgSrc}
+            alt=""
+            className="max-h-[280px] w-auto rounded object-contain"
+          />
+        </div>
+      )}
+      {wpCategories.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {wpCategories.map((c) => (
+            <span
+              key={c}
+              className="rounded-full bg-brand-soft px-2.5 py-0.5 text-label font-semibold uppercase tracking-wider text-brand-dark"
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
+      <h1 className="mb-4 font-display text-title font-semibold leading-tight text-ink">
+        {wpTitle ?? '—'}
+      </h1>
+      {wpExcerpt && (
+        <p className="mb-8 border-l-2 border-brand pl-4 font-display text-lead italic leading-relaxed text-ink/80">
+          {wpExcerpt}
+        </p>
+      )}
+      <div
+        className="prose-editorial"
+        dangerouslySetInnerHTML={{ __html: wpBodyHtml ?? '' }}
+      />
+      {wpTags.length > 0 && (
+        <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-divider pt-6">
+          <span className="text-label font-semibold uppercase tracking-wider text-muted">
+            Etiquetas
+          </span>
+          {wpTags.map((t) => (
+            <span
+              key={t}
+              className="rounded-full bg-subtle px-2.5 py-0.5 text-meta text-ink/70"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+      </article>
+    </div>
+  );
+}
+
+function FacebookPreview({ fbCaption, imgSrc }: Props & { imgSrc: string | null }) {
+  return (
+    <div className="mx-auto max-w-lg overflow-hidden rounded-lg border border-divider bg-surface shadow-card">
+      <div className="flex items-center gap-3 p-4">
+        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-brand to-brand-dark" />
+        <div>
+          <div className="text-meta font-semibold text-ink">PaginaUno.Do</div>
+          <div className="text-label text-muted">Ahora · 🌐 Público</div>
+        </div>
+      </div>
+      <div className="whitespace-pre-wrap px-4 pb-3 text-meta leading-relaxed text-ink/90">
+        {fbCaption ?? '—'}
+      </div>
+      {imgSrc && (
+        <div className="flex justify-center border-t border-divider bg-subtle/40">
+          <img src={imgSrc} alt="" className="max-h-[300px] w-auto object-contain" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InstagramPreview({ igCaption, hashtags, imgSrc }: Props & { imgSrc: string | null }) {
+  return (
+    <div className="mx-auto max-w-md overflow-hidden rounded-lg border border-divider bg-surface shadow-card">
+      <div className="flex items-center gap-3 border-b border-divider p-3">
+        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand to-brand-dark" />
+        <div className="text-meta font-semibold text-ink">paginauno.do</div>
+      </div>
+      {imgSrc && (
+        <img src={imgSrc} alt="" className="aspect-square w-full object-cover" loading="lazy" />
+      )}
+      <div className="p-4">
+        <div className="whitespace-pre-wrap text-meta leading-relaxed text-ink/90">
+          <span className="font-semibold text-ink">paginauno.do</span> {igCaption ?? '—'}
+        </div>
+        {hashtags?.length > 0 && (
+          <div className="mt-2 text-meta leading-relaxed text-schedule">
+            {hashtags.map((h) => `#${h}`).join(' ')}
           </div>
         )}
       </div>

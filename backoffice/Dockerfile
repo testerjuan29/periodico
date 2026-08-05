@@ -24,6 +24,12 @@ COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/package.json ./package.json
 COPY --from=builder --chown=node:node /app/prisma ./prisma
 
+# Crear /uploads con dueño node ANTES de USER node.
+# Docker adopta estos permisos cuando crea el named volume la PRIMERA vez.
+# Si el volumen ya existe con dueño root, hay que borrarlo:
+#   docker volume rm periodicoautomatico_uploads
+RUN mkdir -p /uploads && chown node:node /uploads
+
 USER node
 EXPOSE 3000
 CMD ["npm", "run", "start"]

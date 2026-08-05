@@ -2,13 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #f9fafb;
-  --foreground: #111827;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans text-body;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Fraunces variable — usar peso variable con animación */
+  .font-display {
+    font-variation-settings: 'opsz' 32, 'SOFT' 30, 'WONK' 0;
+  }
+
+  /* Focus visible consistente y accesible */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ink ring-offset-2 ring-offset-paper;
+  }
+
+  /* Selección de texto con acento del brand */
+  ::selection {
+    @apply bg-brand/20 text-ink;
+  }
+
+  /* Scroll bar sutil */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-divider rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted/40;
+  }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+@layer components {
+  /* Hairline divider — la unidad estructural del diseño */
+  .hairline {
+    @apply border-divider;
+  }
+
+  /* Prose editorial para el body del artículo */
+  .prose-editorial {
+    @apply text-body leading-relaxed text-ink/90;
+  }
+  .prose-editorial > * + * {
+    @apply mt-4;
+  }
+  .prose-editorial h2 {
+    @apply mt-8 font-display text-headline font-semibold text-ink;
+    font-variation-settings: 'opsz' 32, 'SOFT' 20;
+  }
+  .prose-editorial p {
+    @apply text-body leading-relaxed;
+  }
+  .prose-editorial p:first-child::first-letter {
+    /* Guiño: capital inicial editorial en el primer párrafo */
+    @apply font-display text-4xl font-semibold text-brand float-left mr-2 leading-none pt-1;
+  }
+  .prose-editorial strong {
+    @apply font-semibold text-ink;
+  }
+  .prose-editorial em {
+    @apply italic;
+  }
+  .prose-editorial a {
+    @apply text-schedule underline decoration-schedule/40 underline-offset-2 hover:decoration-schedule;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
