@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS publications (
   -- Estado de aprobación
   status          TEXT NOT NULL DEFAULT 'pending'
                   CHECK (status IN (
+                    'draft',        -- WA: recibiendo mensajes, espera comando LISTO del reportero
                     'pending',      -- esperando aprobación
                     'approved',     -- aprobada, se publica ya
                     'scheduled',    -- aprobada, se publica en scheduled_at
@@ -75,6 +76,8 @@ CREATE TABLE IF NOT EXISTS publications (
 CREATE INDEX IF NOT EXISTS idx_publications_status         ON publications(status);
 CREATE INDEX IF NOT EXISTS idx_publications_received_at    ON publications(received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_publications_scheduled_due  ON publications(scheduled_at) WHERE status = 'scheduled';
+-- Búsqueda rápida de draft abierto para un sender de WhatsApp (usado por workflow 02)
+CREATE INDEX IF NOT EXISTS idx_publications_draft_sender   ON publications(source_sender, received_at DESC) WHERE status = 'draft';
 
 -- Trigger simple para mantener updated_at
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$

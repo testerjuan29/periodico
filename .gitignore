@@ -37,3 +37,9 @@ scripts/id_mapping.json
 
 # Binarios de temas WordPress (referenciar por link, no versionarlos)
 *.zip
+
+# Material de prueba local (fotos de notas reales)
+noticias/
+
+# Build artifacts
+*.tsbuildinfo

@@ -55,12 +55,15 @@ services:
       WA_VERIFY_TOKEN: ${WA_VERIFY_TOKEN}
       # WhatsApp Cloud API — enviar mensajes salientes (usa META_PAGE_ACCESS_TOKEN)
       WA_PHONE_NUMBER_ID: ${WA_PHONE_NUMBER_ID}
+      WA_MEDIA_DOWNLOAD_ENABLED: ${WA_MEDIA_DOWNLOAD_ENABLED:-false}
       # URL pública del backoffice (para links en notificaciones)
       BACKOFFICE_PUBLIC_URL: ${BACKOFFICE_PUBLIC_URL}
       # Meta Graph API (Facebook Page + IG Business)
       META_PAGE_ID: ${META_PAGE_ID}
       META_PAGE_ACCESS_TOKEN: ${META_PAGE_ACCESS_TOKEN}
       META_IG_USER_ID: ${META_IG_USER_ID}
+      # ImgBB — host público para Instagram (IG exige URL HTTPS pública)
+      IMGBB_API_KEY: ${IMGBB_API_KEY}
       IMAGE_RENDERER_URL: http://image-renderer:3001
       BACKOFFICE_INTERNAL_URL: http://backoffice:3000
     ports:
@@ -139,13 +142,25 @@ services:
       NEXTAUTH_URL: ${BACKOFFICE_PUBLIC_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
+      # Login del backoffice — usuario estático único
+      ADMIN_USER: ${ADMIN_USER:-editor}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       # Webhook al que el backoffice avisa a N8N cuando el cliente aprueba una publicación
       N8N_APPROVAL_WEBHOOK: ${N8N_APPROVAL_WEBHOOK}
+      # Webhook para reencolar la generación de una nota (workflow 09 → 03)
+      N8N_GENERATE_WEBHOOK: http://n8n:5678/webhook/generate-content
       IMAGE_OUTPUT_MOUNT: /image-output
+      # Uploads de imágenes desde el editor — se re-renderean con el template
+      UPLOADS_MOUNT: /uploads
+      # URLs internas de Docker para que backoffice invoque al image-renderer
+      # y para que Puppeteer descargue las fotos subidas desde backoffice
+      IMAGE_RENDERER_URL: http://image-renderer:3001
+      BACKOFFICE_INTERNAL_URL: http://backoffice:3000
     ports:
       - "3000:3000"
     volumes:
       - image_output:/image-output:ro
+      - uploads:/uploads
     networks:
       - pa_net
 
@@ -155,6 +170,7 @@ volumes:
   wp_db_data:
   wp_data:
   image_output:
+  uploads:
 
 networks:
   pa_net:
