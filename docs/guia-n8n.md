@@ -25,16 +25,14 @@ Ver [Troubleshooting](troubleshooting.md) para todos los gotchas.
 
 | # | Nombre | Trigger | Qué hace |
 |---|---|---|---|
-| 01 | `01 Ingest Email` | Webhook `POST /webhook/email-inbound` | Recibe correo de Mailgun/Postmark → normaliza → inserta en DB → invoca 03 |
-| 02 | `02 Ingest WhatsApp` | Webhook `GET/POST /webhook/whatsapp-inbound` | GET valida token con Meta. POST recibe mensaje → normaliza → inserta → invoca 03 |
+| 01 | `01 Ingest Email` | Webhook `POST /webhook/email-inbound` | Recibe correo de Postmark (o Mailgun, misma normalización) → inserta en DB → invoca 03 |
+| 02 | `02 Ingest WhatsApp` | Webhook `GET/POST /webhook/whatsapp-inbound` | GET valida token con Meta. POST: agrupa multi-mensajes en drafts, cierra con `LISTO` → invoca 03 |
 | 03 | `03 Generate Content` | Interno (executeWorkflowTrigger) | SELECT publicación → DeepSeek 3-en-1 → parse JSON → renderiza imagen → UPDATE con contenido |
 | 04 | `04 Publish WordPress` | Interno | SELECT → resuelve categorías/tags a IDs → descarga PNG → sube a WP Media → POST post → UPDATE con wp_post_id |
-| 05 | `05 Publish Facebook` | Interno | Similar a 04 pero contra Meta Graph API (pendiente ampliar como 04) |
-| 06 | `06 Publish Instagram` | Interno | 2 pasos: crear container + publish (Meta Graph API) |
-| 07 | `07 Scheduled Publisher` | Cron cada minuto | Busca `status='scheduled' AND scheduled_at <= NOW()` → dispara 08 |
-| 08 | `08 Approval Router` | Webhook `POST /webhook/publication-approved` | Recibe aviso del backoffice → fan-out a 04, 05, 06 → merge → marca published |
-
-**Versión simplificada disponible**: `08_approval_router_wp_only.json` — solo con WordPress, para probar mientras FB/IG no están.
+| 05 | `05 Publish Facebook` | Interno | SELECT → descarga PNG → POST /{page_id}/photos multipart → UPDATE con fb_post_id |
+| 06 | `06 Publish Instagram` | Interno | SELECT → descarga PNG → upload a ImgBB → POST /media (container) → wait 5s → POST /media_publish → UPDATE con ig_post_id |
+| 07 | `07 Scheduled Publisher` | Cron cada minuto | `UPDATE ... FOR UPDATE SKIP LOCKED` → IF filtra items sin id → notifica a 08 |
+| 08 | `08 Approval Router` | Webhook `POST /webhook/publication-approved` | Recibe aviso del backoffice/07 → fan-out paralelo a 04, 05, 06 → merge → marca published |
 
 ## Cómo importar workflows
 
@@ -153,12 +151,32 @@ Todo lo que pongas en el `.env` (y esté referenciado en `docker-compose.yml`) e
 - `$env.NOMBRE` desde el Code node (requiere `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`)
 - `{{ $env.NOMBRE }}` desde cualquier expresión
 
-Variables actualmente disponibles en n8n:
-- `DEEPSEEK_API_KEY`, `DEEPSEEK_API_URL`
-- `WP_INTERNAL_URL` (=`http://wordpress`), `WP_APP_USER`, `WP_APP_PASSWORD`
-- `WA_VERIFY_TOKEN`
+Variables actualmente disponibles en n8n (ver `docker-compose.yml` sección `n8n.environment`):
+
+**Infraestructura interna**:
 - `IMAGE_RENDERER_URL` (=`http://image-renderer:3001`)
 - `BACKOFFICE_INTERNAL_URL` (=`http://backoffice:3000`)
+- `BACKOFFICE_PUBLIC_URL` (para links en notificaciones)
+
+**LLM**:
+- `DEEPSEEK_API_KEY`
+
+**WordPress local**:
+- `WP_INTERNAL_URL` (=`http://wordpress`), `WP_APP_USER`, `WP_APP_PASSWORD`
+
+**WhatsApp Cloud API (Meta)**:
+- `WA_VERIFY_TOKEN`, `WA_PHONE_NUMBER_ID`, `WA_MEDIA_DOWNLOAD_ENABLED`
+
+**Meta Graph API (FB + IG)**:
+- `META_PAGE_ID`, `META_PAGE_ACCESS_TOKEN`, `META_IG_USER_ID`
+
+**ImgBB (host de imágenes para IG)**:
+- `IMGBB_API_KEY`
+
+Si agregas una nueva variable al `.env`, hay que:
+1. Mapearla en `docker-compose.yml` (sección `n8n.environment`): `MI_VAR: ${MI_VAR}`
+2. Recrear el contenedor: `docker compose up -d --force-recreate n8n`
+3. Verificar que llegó: `docker exec pa_n8n printenv MI_VAR`
 
 ## Best practices aprendidas
 

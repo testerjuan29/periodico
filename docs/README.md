@@ -21,9 +21,18 @@ Estas guías te permiten **entender y operar** el sistema sin conocimiento previ
 
 ## Estado del sistema
 
-**MVP funcional hasta**: ingesta desde WhatsApp → generación con IA → aprobación en backoffice → publicación en WordPress con categorías, tags e imagen destacada.
+**MVP funcional end-to-end**:
+- Ingesta desde **WhatsApp** (con soporte multi-mensaje + comando `LISTO`) y **Email** (Postmark)
+- Generación con **DeepSeek** (título, cuerpo HTML, categorías, tags, captions FB/IG, hashtags) + imagen destacada renderizada con Puppeteer
+- **Backoffice** de aprobación con acciones: publicar ahora / programar / rechazar
+- Publicación en **WordPress + Facebook + Instagram** desde el mismo botón
+- **Publicación programada** con cron cada minuto (workflow 07)
+- **Bitácora de auditoría** con actor, acción, timestamp y payload
 
-**En progreso**: Facebook, Instagram, ingesta por email.
+**Limitaciones conocidas** (por dependencias externas, no bugs):
+- Descarga de imagen adjunta de WhatsApp deshabilitada (`WA_MEDIA_DOWNLOAD_ENABLED=false`) por bug de Meta en cuentas sandbox — se habilita al pasar a Live mode
+- Backoffice sin auth real (usa `ADMIN_EMAIL` como actor fijo) — para operación en producción hay que agregar NextAuth
+- WordPress en dev es local (`http://localhost:8080`) — cambiar a URL pública del cliente al deployar
 
 ## Convenciones
 

@@ -4,11 +4,11 @@
 
 ```
                      ┌─────────────┐
-                     │  Ngrok      │  ← túnel para exponer N8N a Meta
+                     │  Ngrok      │  ← túnel para exponer N8N a Meta y Postmark
                      └──────┬──────┘
                             │
         Meta WhatsApp ──────┤
-        Mailgun (pendiente) ┤
+        Postmark Email ─────┤
                             ▼
                    ┌────────────────┐
                    │      N8N       │  ← orquestador de workflows
@@ -34,15 +34,21 @@
               │  Backoffice │  (Next.js 15 + Prisma)
               │  aprobación │
               └──────┬──────┘
-                     │  webhook al aprobar
+                     │  webhook al aprobar (o cron 07)
                      ▼
                 ┌────────────────┐
-                │   N8N publica  │
+                │   N8N publica  │  ← fan-out paralelo a 3 canales
                 └────────────────┘
-                 │      │      │
-                 ▼      ▼      ▼
-             WordPress  FB    IG
-              (v6.6)         (Graph)
+                 │      │        │
+                 ▼      ▼        ▼
+             WordPress  FB      IG (Graph)
+              (v6.6)  (Graph)   ↑
+                                │
+                          ┌─────┴─────┐
+                          │   ImgBB   │  ← host público de imagen
+                          │  (IG lo   │     (IG requiere URL HTTPS)
+                          │ requiere) │
+                          └───────────┘
 ```
 
 ## Servicios en Docker Compose
@@ -131,11 +137,23 @@ Implementación:
 
 Toda acción del backoffice (aprobar, rechazar, programar) genera una fila en `audit_log` con actor, timestamp y payload. Trazabilidad completa de quién publicó qué.
 
+## Dependencias externas
+
+Servicios externos de los que depende el MVP en runtime:
+
+| Servicio | Rol | Free tier | Fallback si falla |
+|---|---|---|---|
+| **Meta Graph API** | WhatsApp inbound + FB/IG publishing | Ilimitado en sandbox | — (bloqueante) |
+| **Huawei ModelArts** | DeepSeek para generar contenido | Cuota mensual gratis (~1M tokens) | — (bloqueante) |
+| **Postmark** | Email inbound | 100 correos/mes | — (bloqueante para ingesta email) |
+| **ImgBB** | Host público de imágenes para IG | Ilimitado | IG falla, WP y FB siguen |
+| **ngrok** | Túnel público para webhooks (WA + Email) | 1 túnel simultáneo | — (bloqueante para ingesta externa) |
+
 ## Lo que NO está en el MVP
 
-- Autenticación real en el backoffice (hoy cualquiera con la URL accede — falta NextAuth con magic link)
-- Notificaciones al cliente cuando llega una nueva publicación (falta email/WA de aviso)
-- Facebook + Instagram (workflows 05 y 06 pendientes)
-- Ingesta por email (workflow 01 pendiente — falta Mailgun/Postmark)
-- Manejo de errores parciales en publicación (partial vs failed)
-- Tests automatizados
+- **Multi-usuario en el backoffice** — hay login con un usuario estático (`ADMIN_USER`/`ADMIN_PASSWORD`, cookie firmada, sin roles). Para varios editores con identidad propia, migrar a NextAuth con magic link
+- **Notificaciones al editor** — cuando llega una nueva publicación no se avisa por WA/email
+- **Deploy a producción** — todo corre en Docker local; falta config para servidor + dominio HTTPS público para WordPress
+- **Manejo de errores parciales en publicación** — si FB publica pero IG falla, la publicación queda en `publishing` en vez de `partial/failed`. Falta lógica de reconciliación en el 08
+- **Retry automático de publicaciones fallidas** — hoy hay que re-aprobar manualmente
+- **Tests automatizados** — no hay suite de tests unitarios ni e2e

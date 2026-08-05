@@ -211,28 +211,88 @@ Si el upload manual funciona pero desde el Code node no → ver [Gotcha 9](#gotc
 
 ---
 
+### Meta lookaside devuelve 500 al descargar media de WhatsApp
+
+**Síntoma**: `GET https://graph.facebook.com/v20.0/{media-id}` (paso 1) devuelve **200 OK** con un JSON válido que incluye `url`, `mime_type`, `file_size`, etc. Pero al hacer `GET <url>` a esa URL de `lookaside.fbsbx.com` (paso 2), Meta responde **500 Internal Server Error** con body de 21 bytes: `Internal Server Error`.
+
+**Causas verificadas** (nuestro caso, jul 2026):
+- No es tema de código: reproducido con node fetch nativo, N8N HTTP node, Python urllib, **Postman**
+- No es tema de IP: reproducido desde contenedor Docker, Windows host con ISP normal, y hotspot celular (3 IPs distintas)
+- No es media corrupto: reproducido con 3 media-ids distintos, todos con el mismo error
+- No es tema de headers ni redirect handling: Postman envía User-Agent + Accept correctos y sigue redirects preservando Auth → también falla con 500
+- Bearer token es correcto (los permisos `whatsapp_business_messaging` están granted y el paso 1 los usa OK)
+- **Response de Meta**: `500` con header `proxy-status: http_request_error` — indica que el propio proxy interno de Meta falla al procesar el request
+
+**Diagnóstico**: bug conocido de Meta en cuentas WhatsApp Cloud API en **modo Development / sandbox**. El endpoint `lookaside.fbsbx.com` no sirve el binary correctamente para ciertas cuentas sandbox.
+
+**Se resuelve típicamente cuando**:
+- La Meta App pasa de **Development → Live mode** (requiere Business Verification)
+- Se usa un **número WhatsApp Business real** (no el sandbox provisto por Meta)
+- Meta pushea un fix (a veces sin previo aviso)
+
+**Mitigación en el proyecto**:
+- Flag `WA_MEDIA_DOWNLOAD_ENABLED` en el `.env` (default `false`) que deshabilita el brazo de descarga en el workflow 03
+- El template usa placeholder aleatorio de `picsum.photos` mientras el flag esté en false
+- Cuando Meta resuelva o pasemos a Live mode → cambiar a `true` y recrear el contenedor n8n
+
+Reproductor de diagnóstico: `python scripts/test_wa_download.py <media-id>`
+
 ### IG rechaza publicación por URL de imagen no pública
 
 **Síntoma**: al invocar `POST /{ig-user-id}/media`, Facebook responde error 100 o similar diciendo que no pudo descargar la imagen.
 
 **Causa**: IG Content Publishing API requiere que `image_url` sea una URL HTTPS accesible desde internet. No acepta `localhost`, IPs internas de Docker, ni HTTP simple.
 
-**Solución para desarrollo local**:
-- **litterbox.catbox.moe** (usado en el workflow 06 actual): `POST https://litterbox.catbox.moe/resources/internals/api.php` con multipart `reqtype=fileupload`, `time=24h`, `fileToUpload=<binary>` → devuelve URL texto plano. Sin API key, sin registro, sin Cloudflare estricto. Los archivos duran 24-72h (irrelevante, IG ya guarda su copia).
-- Alternativas: tmpfiles.org (menos confiable), imgbb con API key (más robusto), o levantar un segundo ngrok apuntando al backoffice.
-- **Evitar catbox.moe/user/api.php**: mismo dueño que litterbox pero detrás de Cloudflare con checks agresivos — bloquea requests programáticos.
+**Solución actual del proyecto**: **ImgBB** — el workflow 06 sube la imagen a `https://api.imgbb.com/1/upload` y le pasa a IG la URL pública devuelta (`https://i.ibb.co/xxx.jpg`). Ver [guia-integraciones.md — ImgBB](guia-integraciones.md#imgbb--host-p%C3%BAblico-de-im%C3%A1genes-para-instagram).
 
-### catbox.moe devuelve 412 Precondition Failed
+**Producción** (WP con dominio público): cambiar a usar el `source_url` que devuelve `POST /wp/v2/media` — evita el intermediario ImgBB y ahorra un round-trip.
 
-**Síntoma**: al hacer POST a `https://catbox.moe/user/api.php` desde curl, Bruno o N8N, respuesta 412 con "The server doesn't meet the criteria set in request header".
+**Alternativas evaluadas y descartadas**:
+- **litterbox.catbox.moe**: cae ~30% del tiempo con 500. Se usó al inicio, se migró a ImgBB tras fallos consecutivos en publicaciones programadas
+- **catbox.moe/user/api.php**: Cloudflare bloquea requests programáticos (412 Precondition Failed)
+- **tmpfiles.org**: downtime frecuente
+- **Segundo ngrok** al backoffice: requiere plan Pro para 2 túneles
 
-**Causa**: Cloudflare está bloqueando por User-Agent, TLS fingerprint u otras heurísticas anti-bot. Ni siquiera un User-Agent de Chrome suele funcionar (Cloudflare hace más checks).
+### ImgBB responde "Invalid API v1 key"
 
-**Solución**: usar **`litterbox.catbox.moe`** (mismo dueño, misma API, sin Cloudflare estricto pero archivos temporales). Endpoint `POST https://litterbox.catbox.moe/resources/internals/api.php` con `reqtype=fileupload`, `time=24h`, `fileToUpload=<binary>`.
+**Síntoma**: al probar el nodo `Upload to ImgBB` en workflow 06, sale error `Bad request - please check your parameters` con body `Invalid API v1 key.`
 
-**Solución producción**:
-- WordPress en dominio HTTPS público → usar `source_url` que devuelve `/wp/v2/media/{id}`
-- Storage externo (S3 + CloudFront)
+**Causa**: la variable `IMGBB_API_KEY` no llegó al contenedor de N8N. Puede ser: (a) key mal copiada con espacios o comillas en `.env`, (b) no está mapeada en `docker-compose.yml`, o (c) N8N no se recreó después de editar `.env`.
+
+**Solución**:
+
+1. Verifica el `.env` — sin comillas ni espacios:
+   ```
+   IMGBB_API_KEY=0f00example00key00000000000000ab
+   ```
+
+2. Verifica que esté mapeada en `docker-compose.yml`, sección `n8n → environment`:
+   ```yaml
+   IMGBB_API_KEY: ${IMGBB_API_KEY}
+   ```
+
+3. Recrea el contenedor (`restart` no basta — hay que releer el compose):
+   ```powershell
+   docker compose up -d --force-recreate n8n
+   ```
+
+4. Verifica que llegó:
+   ```powershell
+   docker exec pa_n8n printenv IMGBB_API_KEY
+   ```
+   Debe imprimir tu key. Si sale vacío → algo pasó al editar `.env` o `docker-compose.yml`.
+
+### Workflow 07 lanza ejecuciones cada minuto sin datos
+
+**Síntoma**: en `07 Scheduled Publisher` aparecen ejecuciones cada minuto y algunas fallan con `invalid input syntax for type uuid: "null"` en el `Mark Publishing` del workflow 08.
+
+**Causa (histórica)**: el nodo Postgres del 07 emite un item con `id` vacío/null cuando no hay publicaciones vencidas, y ese null se propagaba al webhook a 08.
+
+**Solución**: ya implementada — el 07 tiene un nodo IF `Has Due Row?` entre `Claim Due` y `Notify 08 via Webhook` que filtra items sin `id`. Si sigues viendo el error, verifica que la versión activa del workflow 07 tenga el nodo IF (reimporta `n8n/workflows/07_scheduled_publisher.json` si falta).
+
+**Nota**: es NORMAL ver ejecuciones cada minuto del 07 en la lista de Executions (es el cron). Lo importante es que:
+- Los minutos vacíos: verde end-to-end sin llegar al HTTP
+- Los minutos con publicaciones: verde end-to-end incluyendo el webhook a 08
 
 ### Al generar el System User Token, no aparecen los permisos `pages_*` (o `instagram_*`)
 

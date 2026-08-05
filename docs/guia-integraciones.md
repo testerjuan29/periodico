@@ -84,6 +84,33 @@ Desde tu WhatsApp personal (el registrado como recipient), manda un mensaje al n
 
 El **caption** de mensajes con imagen/video/document está en `messages[0].image.caption` (no en `messages[0].caption`). El workflow 02 lo maneja.
 
+### Multi-mensaje: enviar la noticia en varios mensajes (comando LISTO)
+
+El reportero muchas veces necesita mandar varios mensajes para armar una nota (foto separada del texto, texto largo en 2-3 mensajes, etc.). El workflow 02 agrupa mensajes del mismo remitente en un solo **draft**, y espera el comando `LISTO` para procesar.
+
+**Flujo del reportero**:
+1. Manda foto con caption corto → se crea `draft`
+2. Manda texto con desarrollo de la nota → se **concatena al draft** existente (`source_text` se une con doble salto de línea, `source_media` acumula como array)
+3. Puede mandar más mensajes (fotos adicionales, ampliaciones)
+4. Cuando termina, manda un mensaje **`LISTO`** solo → el draft pasa a `pending` y se dispara la generación con IA
+
+**Reglas del comando**:
+- Case-insensitive: `LISTO`, `listo`, `Listo!`, `LISTO.`, `LISTO ✅` funcionan
+- Debe ser un mensaje **autónomo** — `El acto está listo` NO cuenta, tampoco `LISTO para publicar`
+- Regex exacta: `/^\s*listo[\s!.✓✅👍]*$/i`
+
+**Timeout del buffer**:
+- 4 horas desde el último mensaje. Si el reportero deja de escribir más de 4h y luego vuelve, se abre un draft nuevo (evita mezclar notas de eventos distintos).
+- Determinado por `WHERE received_at > NOW() - INTERVAL '4 hours'` en el CTE del upsert.
+
+**Comando LISTO sin draft previo**:
+- Se ignora (no crea publicación vacía). El reportero recibe el 200 del webhook pero no pasa nada.
+
+**Los drafts en el backoffice**:
+- No aparecen en la mesa de edición por default (el editor ve solo lo listo para su decisión).
+- Filtro dedicado: **`En construcción`** en el nav superior, o `?status=draft` en la URL.
+- Útil si el reportero se olvida el `LISTO` — el editor lo puede cerrar manualmente (funcionalidad pendiente).
+
 ### Descargar la imagen adjunta
 
 La URL en `image.url` es de `lookaside.fbsbx.com` y requiere `Authorization: Bearer <access_token>` para descargar. El proyecto actual NO descarga la imagen — usa un placeholder de `picsum.photos`. Para implementarlo:
@@ -243,22 +270,62 @@ Sin pretty permalinks (fallback): reemplazar `/wp-json/` por `/?rest_route=/`.
 
 ---
 
-## Mailgun / Postmark (email inbound) — PENDIENTE
+## Email inbound — Postmark
 
-*(Sprint 2 - Fase 2)*
+Elegimos **Postmark** sobre Mailgun porque el sandbox de Mailgun no soporta inbound routing (requiere plan pago ~$15/mes). Postmark tiene inbound gratis en el free tier (100 emails/mes) sin necesidad de dominio propio.
 
-### Plan
+### Requisitos
 
-1. Crear cuenta gratis en Mailgun (100 emails/día en sandbox)
-2. Configurar un "Route" que reenvíe emails entrantes a `https://tu-ngrok.ngrok-free.app/webhook/email-inbound`
-3. Configurar el DNS del dominio del cliente para que apunte a Mailgun (o usar el subdominio sandbox de Mailgun para pruebas)
-4. Activar el workflow 01 (Ingest Email) en N8N
+- Cuenta gratis en https://postmarkapp.com
+- ngrok activo apuntando a N8N
+- Workflow 01 importado y publicado
 
-### Alternativa: forwarding directo
+### Setup (5 min)
 
-Si el cliente usa Gmail/Google Workspace, se puede:
-1. Crear un filtro en Gmail que reenvíe correos a un webhook — requiere Google Apps Script
-2. Más complicado que Mailgun/Postmark; solo si el cliente lo prefiere por temas de dominio
+1. **Signup**: https://account.postmarkapp.com/sign_up (sin tarjeta)
+2. Postmark crea un `My First Server` con 3 streams automáticos, incluido **Default Inbound Stream**
+3. Entrar al Default Inbound Stream → tab **Setup Instructions**:
+   - **Inbound email address**: `<hash>@inbound.postmarkapp.com` — este es el email al que se envían las notas
+   - **Inbound webhook URL**: pegar la URL pública `https://<ngrok>/webhook/email-inbound`
+   - Save
+
+### Test
+
+Desde cualquier Gmail (Postmark NO requiere autorización previa del remitente en inbound), enviar un email al `<hash>@inbound.postmarkapp.com`.
+
+Timing esperado: ~15-20s desde Send hasta que aparece en el backoffice como publicación pendiente.
+
+### Payload de Postmark
+
+Postmark manda JSON (no multipart como Mailgun). Fields relevantes:
+- `From`, `FromFull.Email` — remitente
+- `Subject`
+- `TextBody`, `HtmlBody`, `StrippedTextReply`
+- `Attachments[]` con `{Name, ContentType, ContentLength, ContentURL}`
+
+El nodo `Parse Email` del workflow 01 tiene compatibilidad con Postmark, Mailgun y variantes.
+
+### Limitaciones del free tier
+
+- 100 emails/mes procesados (send + inbound sumados)
+- Modo test hasta pedir aprobación de la cuenta (para pasar el límite y quitar restricciones de outbound)
+- **Inbound NO tiene restricción de dominio** — cualquier remitente puede mandar al `<hash>@inbound.postmarkapp.com`
+
+### Nota: por qué NO Mailgun
+
+Mailgun sandbox NO soporta inbound routing (solo outbound). Para inbound con Mailgun se necesita:
+- Plan Flex ($15/mes o superior), Y
+- Dominio propio con MX records apuntando a `mxa.mailgun.org` / `mxb.mailgun.org`
+
+Postmark es más pragmático para MVP: 0 costo, 0 dominio, 3 min de setup.
+
+### Cuándo pasar a un dominio propio
+
+Cuando el cliente quiera un email de recepción "presentable" como `redaccion@paginauno.do`:
+1. Configurar MX record del subdominio en el DNS del cliente
+2. Verificar el dominio en Postmark (sección Sender Signatures / Domains)
+3. Configurar forward: cualquier email al subdominio → inbound stream
+4. Los redactores mandan a `redaccion@paginauno.do` en vez del hash de Postmark
 
 ---
 
@@ -477,17 +544,18 @@ IG **NO acepta upload binary directo** (a diferencia de FB Pages). Facebook desc
 - `http://backoffice:3000/api/image?path=...` → **no funciona** (URL interna Docker)
 - `http://localhost:8080/wp-content/uploads/...` → **no funciona** (localhost no es público, además IG requiere HTTPS)
 
+**Solución usada en el proyecto**: **ImgBB** (ver [sección dedicada abajo](#imgbb--host-p%C3%BAblico-de-im%C3%A1genes-para-instagram)).
+
 **Soluciones para producción**:
 - Usar el `source_url` de WP cuando WP esté deployado en un dominio HTTPS público
 - Storage externo tipo S3/CloudFront/Cloudinary
 
-**Soluciones para desarrollo local**:
-- **litterbox.catbox.moe** (RECOMENDADO): endpoint `POST https://litterbox.catbox.moe/resources/internals/api.php` con `reqtype=fileupload`, `time=24h` (1h/12h/24h/72h), `fileToUpload=<binary>`. Devuelve URL como texto plano tipo `https://litter.catbox.moe/xxxxx.jpg`. Sin Cloudflare estricto (funciona desde cualquier User-Agent), sin API key, sin registro. Los archivos duran hasta 72h — suficiente porque IG ya copia la imagen al publicar. Es el que usa el workflow 06 del proyecto.
-- **tmpfiles.org**: alternativa parecida pero con downtime frecuente. Respuesta JSON en `data.url`; hay que transformar `tmpfiles.org/xxx` → `tmpfiles.org/dl/xxx` para obtener la URL directa del archivo.
-- **catbox.moe/user/api.php**: mismo dueño que litterbox pero perpetuo. Problema: está detrás de Cloudflare con checks estrictos (JS challenge, TLS fingerprint) — bloquea requests programáticos incluso con User-Agent de browser.
-- **imgbb.com** o **freeimage.host**: requieren API key (registro gratis). Respuesta JSON estructurada. Más robustos que catbox/litterbox si se necesita algo pro.
-- **Segundo ngrok apuntando al backoffice** (`ngrok http 3000`): funciona pero requiere plan Pro para 2 túneles simultáneos.
-- **Skip test local de IG**: dejar el workflow listo para cuando WP tenga dominio público y usar el `source_url` de WP directamente.
+**Alternativas evaluadas y descartadas para dev local**:
+- **litterbox.catbox.moe**: sin API key, pero **muy inestable** — cae ~30% del tiempo devolviendo HTML 500. Se usó al inicio, se migró a ImgBB tras varios fallos consecutivos en flujos programados.
+- **tmpfiles.org**: alternativa parecida a litterbox, con downtime frecuente. Descartado.
+- **catbox.moe/user/api.php**: mismo dueño que litterbox, perpetuo. Cloudflare bloquea requests programáticos (412 Precondition Failed). Descartado.
+- **Segundo ngrok apuntando al backoffice** (`ngrok http 3000`): requiere plan Pro para 2 túneles simultáneos.
+- **freeimage.host, Cloudinary, ImageKit**: requieren API key, funcionan bien. ImgBB es el más simple.
 
 ### Límites y consideraciones
 
@@ -496,3 +564,76 @@ IG **NO acepta upload binary directo** (a diferencia de FB Pages). Facebook desc
 - Máximo **30 hashtags** por post
 - La imagen debe ser JPEG o PNG, min 320px, max 8192x8192px, aspect ratio entre 4:5 y 1.91:1
 - Nuestro template es 1080x1080 (1:1) — dentro del rango
+
+---
+
+## ImgBB — host público de imágenes para Instagram
+
+Instagram Content Publishing API requiere `image_url` públicamente accesible por HTTPS. Como localhost / URLs internas de Docker no sirven, subimos la imagen a un host externo justo antes de crear el container de IG.
+
+### Por qué ImgBB (y no otros)
+
+- **Free tier sin restricciones prácticas**: ilimitado en uploads, no requiere tarjeta
+- **API simple**: 1 endpoint, respuesta JSON estructurada con `data.url`
+- **Confiable**: infraestructura pro (a diferencia de litterbox/tmpfiles que caen frecuentemente)
+- **Signup con Google login**: 30 segundos, no requiere email verification manual
+
+### Setup (2 min)
+
+1. **Signup**: https://api.imgbb.com/ → click **"Get API Key"** → login con Google o email
+2. Copia la key (formato: 32 chars alfanuméricos, ej: `0f00example00key00000000000000ab`)
+3. Guárdala en el `.env`:
+
+```
+IMGBB_API_KEY=0f00example00key00000000000000ab
+```
+
+4. Verifica que esté mapeada en `docker-compose.yml` (servicio `n8n`):
+
+```yaml
+IMGBB_API_KEY: ${IMGBB_API_KEY}
+```
+
+5. Recrea el contenedor para que tome la variable:
+
+```powershell
+docker compose up -d --force-recreate n8n
+```
+
+6. Verifica que llegó al contenedor:
+
+```powershell
+docker exec pa_n8n printenv IMGBB_API_KEY
+```
+
+Debe imprimir tu key. Si sale vacío → revisa que esté en `.env` sin comillas ni espacios alrededor del `=`.
+
+### Endpoint usado por el workflow 06
+
+```
+POST https://api.imgbb.com/1/upload?key={IMGBB_API_KEY}&expiration=86400
+
+Body (multipart/form-data):
+  image: <binary del PNG/JPG>
+
+Respuesta:
+{
+  "data": {
+    "id": "...",
+    "url": "https://i.ibb.co/xxxxxxx/image.jpg",
+    "display_url": "https://i.ibb.co/xxxxxxx/image.jpg",
+    "delete_url": "..."
+  },
+  "success": true,
+  "status": 200
+}
+```
+
+El parámetro `expiration=86400` hace que la imagen expire en 24h (el máximo son 15552000 seg = 6 meses; el mínimo 60 seg). Como IG copia la imagen a sus servidores al publicar, 24h es más que suficiente.
+
+### Troubleshooting
+
+- **"Invalid API v1 key"** → la variable no llegó al contenedor. Verifica: (a) que esté en `.env` sin comillas, (b) que esté mapeada en `docker-compose.yml`, (c) que hayas hecho `docker compose up -d --force-recreate n8n` (no basta `restart`).
+- **"Rate limit exceeded"** → ImgBB tiene rate limit generoso (~500/h) pero si sale, esperar 1 min. Casi nunca aparece con tráfico normal.
+- **Retries automáticos**: el nodo `Upload to ImgBB` tiene `retryOnFail: true` con 3 intentos y 2s entre cada uno. Cubre glitches puntuales de red.
+

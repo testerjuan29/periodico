@@ -1,6 +1,6 @@
 # Flujo end-to-end de una publicación
 
-De cómo un mensaje de WhatsApp termina siendo un post publicado en WordPress con imagen, categorías y tags reales del cliente.
+De cómo un mensaje de WhatsApp (o un email) termina siendo un post publicado en WordPress + Facebook + Instagram con imagen, categorías y tags reales del cliente.
 
 ## Los 4 pasos
 
@@ -8,7 +8,8 @@ De cómo un mensaje de WhatsApp termina siendo un post publicado en WordPress co
 1. INGESTA          2. GENERACIÓN       3. APROBACIÓN       4. PUBLICACIÓN
    ─────────           ───────────         ────────────        ──────────────
    WhatsApp/Email  →   DeepSeek IA   →    Backoffice     →   WordPress
-                       Puppeteer          (humano)          (+ FB, IG)
+                       Puppeteer          (humano)          + Facebook
+                                                            + Instagram
 ```
 
 Cada paso deja rastro en la tabla `publications` cambiando el `status`.
@@ -23,18 +24,39 @@ pending → approved → publishing → published
 
 ## Paso 1 — Ingesta
 
-**Trigger**: llega un mensaje de WhatsApp al número sandbox de Meta (o un email a Mailgun, cuando esté).
+**Trigger**: llega un mensaje de WhatsApp al número sandbox de Meta, o un email al inbound address de Postmark.
 
-**Qué pasa técnicamente**:
+**Vía Email (workflow 01)**:
+1. El redactor manda un email a `<hash>@inbound.postmarkapp.com` (o al alias configurado tipo `redaccion@paginauno.do` si ya se configuró dominio propio)
+2. Postmark hace `POST` con JSON a `https://<ngrok>/webhook/email-inbound`
+3. `01 Ingest Email` normaliza el payload (soporta formatos Postmark, Mailgun y variantes) → extrae `sender`, `subject`, `text`, `media[]`
+4. Inserta en `publications` con `status='pending'` y `source_type='email'`
+5. Invoca workflow 03 con el `id`
+
+**Vía WhatsApp (workflow 02)** — con soporte multi-mensaje:
 
 1. Meta hace `POST` al webhook público de N8N: `https://tu-ngrok.ngrok-free.app/webhook/whatsapp-inbound`
 2. Ngrok reenvía el request a `http://localhost:5678/webhook/whatsapp-inbound`
 3. N8N recibe en el workflow **`02 Ingest WhatsApp`**:
    - **Webhook WhatsApp** captura el payload
    - **Is Inbound Message?** filtra: solo procesa si hay un mensaje real (ignora acks, deliveries, reads)
-   - **Normalize** extrae `sender`, `text` (con soporte para caption de imagen/video/document), `media`
-   - **Insert Publication** hace `INSERT INTO publications` con `status='pending'` — genera un UUID
+   - **Parse Message** (Code): extrae `sender`, `text` (con caption de imagen/video/document), `media` (como array), y detecta si el mensaje es solo `LISTO` (regex `/^\s*listo[\s!.✓✅👍]*$/i`)
+   - **Upsert Draft** (Postgres CTE): busca si existe draft abierto de ese sender de las últimas 4h. Si existe → concatena texto (doble `\n`) y appendea media al array. Si no existe y el mensaje NO es LISTO → crea nuevo draft con `status='draft'`. Si no existe y ES LISTO → no crea nada (ignora)
+   - **Is Closing?** (IF): valida `isClosing == true && upsert devolvió id`
+   - **Close Draft** (Postgres): `UPDATE ... SET status='pending' WHERE id=X AND status='draft'`
    - **Trigger Generate Content** invoca el workflow 03 pasándole `{id: <uuid>}`
+
+**Ejemplo real**:
+```
+09:31  Reportero → [foto] "Alcalde inaugura hospital en Santiago"    → draft creado
+09:32  Reportero → "La obra costó 3,500 millones..."                  → append al draft
+09:33  Reportero → "Presidieron el acto Víctor Atallah y..."          → append al draft
+09:35  Reportero → "LISTO"                                            → draft → pending → 03
+```
+
+**Timeouts**:
+- Si el reportero deja de escribir más de 4h y vuelve, se abre un draft nuevo (no mezcla eventos distintos).
+- Si nunca manda LISTO, el draft queda huérfano en `status='draft'` (visible en la tab "En construcción" del backoffice).
 
 **Resultado en la DB**:
 ```
@@ -131,9 +153,12 @@ Y en `audit_log` una fila con `action='approve'`.
 2. **Extract** extrae `publicationId` y `event`
 3. **Publish Now?** valida `event=='approved'` → sigue por rama true
 4. **Mark Publishing** hace `UPDATE ... SET status='publishing'`
-5. **→ WordPress** invoca el sub-workflow `04 Publish WordPress` con `{id}`
+5. **Fan-out**: dispara EN PARALELO los 3 sub-workflows:
+   - **→ WordPress** invoca `04 Publish WordPress`
+   - **→ Facebook** invoca `05 Publish Facebook`
+   - **→ Instagram** invoca `06 Publish Instagram`
 
-### Dentro del workflow 04
+### Dentro del workflow 04 (WordPress)
 
 1. **Load** hace `SELECT` de la fila
 2. **Resolve Taxonomy** (Code node):
@@ -146,9 +171,29 @@ Y en `audit_log` una fila con `action='approve'`.
    - Devuelve `{id, link, ...}`
 6. **Save WP IDs** hace `UPDATE ... SET wp_post_id, wp_post_url`
 
+### Dentro del workflow 05 (Facebook)
+
+1. **Load** hace `SELECT` de la fila (usa `fb_caption`, `image_url`)
+2. **Download Image** hace `GET` al backoffice → binary
+3. **Publish Photo** hace `POST /{page_id}/photos` multipart con `source`=binary, `caption`=fb_caption, `access_token`=META_PAGE_ACCESS_TOKEN
+4. **Save FB IDs** hace `UPDATE ... SET fb_post_id, fb_post_url`
+
+### Dentro del workflow 06 (Instagram)
+
+1. **Load** hace `SELECT` (usa `ig_caption`, `hashtags`, `image_url`)
+2. **Build Caption** concatena `ig_caption` + `\n\n` + hashtags formateados con `#`
+3. **Download Image** hace `GET` al backoffice → binary
+4. **Upload to ImgBB** hace `POST https://api.imgbb.com/1/upload` multipart → devuelve URL pública HTTPS (`https://i.ibb.co/xxx.jpg`)
+5. **Extract Public URL** parsea la respuesta JSON de ImgBB
+6. **Create IG Container** hace `POST /{ig_user_id}/media` con `image_url`, `caption`, `access_token` → devuelve `container_id`
+7. **Wait 5s** — IG necesita tiempo para descargar la imagen antes de publicar
+8. **Publish IG** hace `POST /{ig_user_id}/media_publish` con `creation_id=container_id` → devuelve `ig_media_id`
+9. **Save IG IDs** hace `UPDATE ... SET ig_post_id, ig_post_url`
+
 ### Volviendo al 08
 
-7. **Mark Published** hace `UPDATE ... SET status='published', published_at=NOW()`
+7. **Merge Results** espera a los 3 sub-workflows (append de outputs)
+8. **Mark Published** hace `UPDATE ... SET status='published', published_at=NOW()`
 
 **Resultado final en la DB**:
 ```
@@ -156,10 +201,17 @@ id: <uuid>
 status: published
 wp_post_id: 42
 wp_post_url: http://localhost:8080/abinader-anuncia-500-becas-.../
+fb_post_id: 61592116626896_...
+fb_post_url: https://www.facebook.com/...
+ig_post_id: 18234...
+ig_post_url: https://www.instagram.com/p/CxxxxYYY/
 published_at: 2026-07-22 04:45:12
 ```
 
-Y en WordPress → **Escritorio → Entradas**: aparece el post publicado, con la imagen destacada, en las categorías correctas.
+Y verificable en:
+- **WordPress** → Escritorio → Entradas: aparece el post con imagen destacada y categorías
+- **Facebook** → tu Page: aparece el post con la imagen
+- **Instagram** → cuenta IG Business: aparece el post con caption + hashtags
 
 ## Ruta alternativa: publicación programada
 
@@ -182,7 +234,9 @@ WHERE id IN (
 RETURNING id;
 ```
 
-Para cada fila reclamada, dispara el workflow 08 con `event='approved'` — que hace el resto normal.
+**Filtro anti-ruido**: después del UPDATE, un nodo IF (`Has Due Row?`) valida que `$json.id` no esté vacío. Sin este filtro, el nodo Postgres emite un item con `id=null` cuando no hay filas vencidas, lo que dispararía el webhook a 08 cada minuto con payload inválido y llenaría los logs de errores.
+
+Para cada fila reclamada válida, dispara el workflow 08 con `event='approved'` — que hace el resto normal.
 
 **Por qué `FOR UPDATE SKIP LOCKED`**: en el futuro cuando escales N8N a varias réplicas (queue mode), este SQL garantiza que ninguna publicación se procese dos veces.
 
@@ -222,10 +276,15 @@ User        Backoffice   N8N (08)      N8N (04)     WordPress   Postgres
 
 ## Cuánto tarda
 
-- Ingesta (webhook → DB): **~200ms**
+- Ingesta WhatsApp (webhook → DB): **~200ms**
+- Ingesta Email vía Postmark (send → webhook llega): **~5-15s** (depende del provider del remitente)
 - Generación con DeepSeek: **5-15s** (Huawei es rápido)
 - Render imagen: **~500ms**
 - Backoffice ve la publicación: **inmediato** (cuando refresca)
-- Aprobación → publicación en WP: **~3-5s** (resolver taxonomía + upload media + crear post)
+- Aprobación → publicación en los 3 canales:
+  - WordPress: ~3-5s (resolver taxonomía + upload media + crear post)
+  - Facebook: ~1-2s (POST /photos multipart)
+  - Instagram: ~8-12s (upload a ImgBB + create container + wait 5s + publish)
+  - Como corren en paralelo, el total es el más lento (~10s)
 
-**Total desde que llega un WA hasta ver el post en WP**: 10-20s + el tiempo humano de aprobación.
+**Total desde que llega un WA hasta ver el post en los 3 canales**: 15-30s + el tiempo humano de aprobación.

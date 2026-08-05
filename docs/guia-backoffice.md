@@ -6,7 +6,11 @@ El backoffice es una app Next.js 15 que es la interfaz humana del sistema. Aquí
 
 http://localhost:3000
 
-**⚠️ No tiene auth todavía** — cualquiera con la URL entra. Pendiente añadir NextAuth (magic link al `ADMIN_EMAIL`). Para MVP local está OK.
+**Login con usuario estático único.** Credenciales en el `.env` (`ADMIN_USER` / `ADMIN_PASSWORD`); la sesión es una cookie firmada con `NEXTAUTH_SECRET` que dura 30 días. El middleware protege todas las páginas y APIs, con dos excepciones deliberadas:
+
+- `/api/image` y `/api/upload/*` quedan abiertos porque **n8n** (workflows 04/05/06 descargan la imagen renderizada) y **Puppeteer** (re-render del template) los consumen desde la red interna de Docker sin cookies. Solo sirven imágenes.
+
+Sin roles: el usuario tiene permiso para todo. Cerrar sesión: botón de salida en el header. Para multi-usuario o magic links, migrar `/api/auth/login` a NextAuth (ya está en `package.json`).
 
 ## Pantallas
 
