@@ -7,7 +7,9 @@
         "path": "email-inbound",
         "responseMode": "onReceived",
         "responseCode": 200,
-        "options": {}
+        "options": {
+          "rawBody": false
+        }
       },
       "id": "b1a1e001-0001-4001-8001-000000000001",
       "name": "Webhook Email",
@@ -18,33 +20,26 @@
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            { "id": "1", "name": "sender",  "value": "={{ $json.body.sender || $json.body.From || $json.body.from }}", "type": "string" },
-            { "id": "2", "name": "subject", "value": "={{ $json.body.subject || $json.body.Subject }}", "type": "string" },
-            { "id": "3", "name": "text",    "value": "={{ $json.body['stripped-text'] || $json.body['body-plain'] || $json.body.TextBody || $json.body.text }}", "type": "string" },
-            { "id": "4", "name": "media",   "value": "={{ $json.body.attachments || $json.body.Attachments || [] }}", "type": "array" }
-          ]
-        },
-        "options": {}
+        "language": "javaScript",
+        "jsCode": "// Parsea el payload de Mailgun (inbound webhook).\n// Mailgun manda multipart/form-data con campos como 'sender', 'From', 'subject',\n// 'body-plain', 'stripped-text', 'attachment-count', 'attachment-1', 'attachment-2', ...\n// También sirve para Postmark (que manda JSON con 'FromFull', 'TextBody', 'Attachments')\n// y providers similares.\n\nconst body = $input.first().json.body || {};\n\n// Sender: 'sender' (Mailgun clean) > 'from' > 'From' > 'FromFull.Email' (Postmark)\nconst sender = body.sender || body.from || body.From || body.FromFull?.Email || 'desconocido@email';\n\n// Subject\nconst subject = body.subject || body.Subject || '(sin asunto)';\n\n// Body de texto: preferir 'stripped-text' (sin firma/quotes), fallback a 'body-plain'\nconst text =\n  body['stripped-text']\n  || body['body-plain']\n  || body.TextBody           // Postmark\n  || body.text\n  || body.StrippedTextReply  // Postmark\n  || '';\n\n// Attachments: Mailgun manda 'attachment-1', 'attachment-2', ... como campos separados\n// O 'attachments' como array (Mailgun API newer). Postmark manda 'Attachments'.\nconst media = [];\nif (Array.isArray(body.attachments)) {\n  for (const a of body.attachments) {\n    media.push({\n      type: (a['content-type'] || a.ContentType || '').startsWith('image/') ? 'image' : 'file',\n      url: a.url || a.ContentURL || null,\n      mime_type: a['content-type'] || a.ContentType,\n      name: a.name || a.Name,\n      size: a.size || a.ContentLength,\n    });\n  }\n} else if (Array.isArray(body.Attachments)) {\n  for (const a of body.Attachments) {\n    media.push({\n      type: (a.ContentType || '').startsWith('image/') ? 'image' : 'file',\n      url: a.ContentURL || null,\n      mime_type: a.ContentType,\n      name: a.Name,\n      size: a.ContentLength,\n    });\n  }\n} else if (body['attachment-count']) {\n  const count = Number(body['attachment-count']) || 0;\n  for (let i = 1; i <= count; i++) {\n    const a = body[`attachment-${i}`];\n    if (a) {\n      media.push({\n        type: (a['content-type'] || '').startsWith('image/') ? 'image' : 'file',\n        url: a.url || null,\n        mime_type: a['content-type'],\n        name: a.name,\n        size: a.size,\n      });\n    }\n  }\n}\n\nreturn { sender, subject, text, media };\n"
       },
       "id": "b1a1e001-0001-4001-8001-000000000002",
-      "name": "Normalize",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [480, 300]
+      "name": "Parse Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO publications (source_type, source_raw, source_sender, source_subject, source_text, source_media)\nVALUES ('email', '{{ JSON.stringify($('Webhook Email').item.json.body).replace(/'/g, \"''\") }}'::jsonb, '{{ String($json.sender).replace(/'/g, \"''\") }}', '{{ String($json.subject).replace(/'/g, \"''\") }}', '{{ String($json.text).replace(/'/g, \"''\") }}', '{{ JSON.stringify($json.media).replace(/'/g, \"''\") }}'::jsonb)\nRETURNING id;",
+        "query": "=INSERT INTO publications (source_type, source_raw, source_sender, source_subject, source_text, source_media, status)\nVALUES (\n  'email',\n  '{{ JSON.stringify($('Webhook Email').item.json.body).replace(/'/g, \"''\") }}'::jsonb,\n  '{{ String($json.sender).replace(/'/g, \"''\") }}',\n  '{{ String($json.subject).replace(/'/g, \"''\") }}',\n  '{{ String($json.text).replace(/'/g, \"''\") }}',\n  '{{ JSON.stringify($json.media).replace(/'/g, \"''\") }}'::jsonb,\n  'pending'\n)\nRETURNING id;",
         "options": {}
       },
       "id": "b1a1e001-0001-4001-8001-000000000003",
       "name": "Insert Publication",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [720, 300],
+      "position": [680, 300],
       "credentials": {
         "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
       }
@@ -58,14 +53,14 @@
       "name": "Trigger Generate Content",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [960, 300]
+      "position": [900, 300]
     }
   ],
   "connections": {
     "Webhook Email": {
-      "main": [[{ "node": "Normalize", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Parse Email", "type": "main", "index": 0 }]]
     },
-    "Normalize": {
+    "Parse Email": {
       "main": [[{ "node": "Insert Publication", "type": "main", "index": 0 }]]
     },
     "Insert Publication": {

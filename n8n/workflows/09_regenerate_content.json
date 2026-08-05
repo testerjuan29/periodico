@@ -1,0 +1,54 @@
+{
+  "name": "09 Regenerate Content",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-content",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "options": {}
+      },
+      "id": "b9a9e009-0009-4009-8009-000000000001",
+      "name": "Webhook Regenerate",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "webhookId": "generate-content"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// El workflow 03 espera { id } — el backoffice manda { publicationId }.\nconst body = $input.first().json.body || {};\nconst id = body.publicationId || body.id;\nif (!id) throw new Error('publicationId requerido');\nreturn { id };"
+      },
+      "id": "b9a9e009-0009-4009-8009-000000000002",
+      "name": "Map Id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "mode": "name", "value": "03 Generate Content" },
+        "options": {}
+      },
+      "id": "b9a9e009-0009-4009-8009-000000000003",
+      "name": "Trigger Generate Content",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Regenerate": {
+      "main": [[{ "node": "Map Id", "type": "main", "index": 0 }]]
+    },
+    "Map Id": {
+      "main": [[{ "node": "Trigger Generate Content", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": {},
+  "active": false
+}

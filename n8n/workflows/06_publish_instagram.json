@@ -68,28 +68,29 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://litterbox.catbox.moe/resources/internals/api.php",
+        "url": "=https://api.imgbb.com/1/upload?key={{ $env.IMGBB_API_KEY }}&expiration=86400",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
           "parameters": [
-            { "name": "reqtype", "value": "fileupload" },
-            { "name": "time", "value": "24h" },
-            { "parameterType": "formBinaryData", "name": "fileToUpload", "inputDataFieldName": "data" }
+            { "parameterType": "formBinaryData", "name": "image", "inputDataFieldName": "data" }
           ]
         },
         "options": {}
       },
       "id": "c6a6e006-0006-4006-8006-000000000005",
-      "name": "Upload to litterbox",
+      "name": "Upload to ImgBB",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1040, 300]
+      "position": [1040, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
     },
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const inp = $input.first();\n// 0x0.st devuelve la URL como texto plano en el body\nlet body;\nif (typeof inp.json === 'string') body = inp.json;\nelse if (inp.json?.data) body = String(inp.json.data);\nelse if (inp.json?.text) body = String(inp.json.text);\nelse body = JSON.stringify(inp.json);\nconst url = body.trim();\nif (!/^https?:\\/\\//.test(url)) {\n  throw new Error('Upload response missing url. Body: ' + body);\n}\nreturn { public_image_url: url };"
+        "jsCode": "const inp = $input.first();\n// ImgBB devuelve JSON: { data: { url, display_url, ... }, success, status }\nconst url = inp.json?.data?.url || inp.json?.data?.display_url;\nif (!url || !/^https?:\\/\\//.test(url)) {\n  throw new Error('ImgBB response missing url. Body: ' + JSON.stringify(inp.json));\n}\nreturn { public_image_url: url };"
       },
       "id": "c6a6e006-0006-4006-8006-000000000006",
       "name": "Extract Public URL",
@@ -180,9 +181,9 @@
       "main": [[{ "node": "Set Filename", "type": "main", "index": 0 }]]
     },
     "Set Filename": {
-      "main": [[{ "node": "Upload to litterbox", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Upload to ImgBB", "type": "main", "index": 0 }]]
     },
-    "Upload to litterbox": {
+    "Upload to ImgBB": {
       "main": [[{ "node": "Extract Public URL", "type": "main", "index": 0 }]]
     },
     "Extract Public URL": {

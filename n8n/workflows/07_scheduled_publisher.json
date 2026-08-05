@@ -28,29 +28,40 @@
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            { "id": "1", "name": "publicationId", "value": "={{ $json.id }}", "type": "string" }
-          ]
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "has-id",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
         },
         "options": {}
       },
-      "id": "b7a7e007-0007-4007-8007-000000000003",
-      "name": "Prepare Payload",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [720, 300]
+      "id": "b7a7e007-0007-4007-8007-000000000010",
+      "name": "Has Due Row?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [660, 300]
     },
     {
       "parameters": {
-        "workflowId": { "__rl": true, "mode": "name", "value": "08 Approval Router" },
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/publication-approved",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { publicationId: $json.id, event: 'approved' } }}",
         "options": {}
       },
-      "id": "b7a7e007-0007-4007-8007-000000000004",
-      "name": "Fan-out to Publishers",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [960, 300]
+      "id": "b7a7e007-0007-4007-8007-000000000003",
+      "name": "Notify 08 via Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 260]
     }
   ],
   "connections": {
@@ -58,10 +69,13 @@
       "main": [[{ "node": "Claim Due", "type": "main", "index": 0 }]]
     },
     "Claim Due": {
-      "main": [[{ "node": "Prepare Payload", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Has Due Row?", "type": "main", "index": 0 }]]
     },
-    "Prepare Payload": {
-      "main": [[{ "node": "Fan-out to Publishers", "type": "main", "index": 0 }]]
+    "Has Due Row?": {
+      "main": [
+        [{ "node": "Notify 08 via Webhook", "type": "main", "index": 0 }],
+        []
+      ]
     }
   },
   "settings": { "executionOrder": "v1" },

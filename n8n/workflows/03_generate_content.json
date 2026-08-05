@@ -12,17 +12,171 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=SELECT id, source_sender, source_subject, source_text, source_media, received_at\nFROM publications\nWHERE id = '{{ $json.id }}'::uuid;",
+        "query": "=SELECT id, source_type, source_sender, source_subject, source_text, source_media, received_at\nFROM publications\nWHERE id = '{{ $json.id }}'::uuid;",
         "options": {}
       },
       "id": "b3a3e003-0003-4003-8003-000000000002",
       "name": "Load Publication",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [480, 300],
+      "position": [440, 300],
       "credentials": {
         "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "wa-media-download-enabled",
+              "leftValue": "={{ $env.WA_MEDIA_DOWNLOAD_ENABLED }}",
+              "rightValue": "true",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "has-image-url",
+              "leftValue": "={{ $json.source_media?.[0]?.url }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            },
+            {
+              "id": "is-image-type",
+              "leftValue": "={{ $json.source_media?.[0]?.type }}",
+              "rightValue": "image",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000040",
+      "name": "Has WA Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v20.0/{{ $json.source_media[0].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.META_PAGE_ACCESS_TOKEN }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000047",
+      "name": "Get WA Media URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.uri || $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.META_PAGE_ACCESS_TOKEN }}" },
+            { "name": "User-Agent", "value": "Mozilla/5.0 (compatible; PeriodicoBot/1.0)" },
+            { "name": "Accept", "value": "image/*, */*" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000041",
+      "name": "Download WA Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1020, 200]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Normaliza filename para que Litterbox lo acepte (ext .jpg + mime image/jpeg)\nconst inp = $input.first();\nreturn {\n  json: inp.json,\n  binary: {\n    data: {\n      ...(inp.binary?.data || {}),\n      fileName: 'wa-image.jpg',\n      fileExtension: 'jpg',\n      mimeType: 'image/jpeg',\n    }\n  }\n};"
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000042",
+      "name": "Set JPG Filename",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1180, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://litterbox.catbox.moe/resources/internals/api.php",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "reqtype", "value": "fileupload" },
+            { "name": "time", "value": "24h" },
+            { "parameterType": "formBinaryData", "name": "fileToUpload", "inputDataFieldName": "data" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000043",
+      "name": "Upload to Litterbox",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Extrae la URL pública que litterbox devuelve como texto plano.\n// Preserva los campos del Load Publication para que los nodos siguientes tengan acceso.\nconst inp = $input.first();\nlet body;\nif (typeof inp.json === 'string') body = inp.json;\nelse if (inp.json?.data) body = String(inp.json.data);\nelse if (inp.json?.text) body = String(inp.json.text);\nelse body = JSON.stringify(inp.json);\nconst url = body.trim();\nif (!/^https?:\\/\\//.test(url)) {\n  throw new Error('Litterbox response missing url. Body: ' + body);\n}\nconst pub = $('Load Publication').first().json;\nreturn {\n  ...pub,\n  public_image_url: url,\n};"
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000044",
+      "name": "Extract Public URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 200]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// No hay imagen adjunta — usar placeholder (imagen aleatoria distinta cada vez)\nconst pub = $input.first().json;\nconst seed = Math.floor(Math.random() * 1000000);\nreturn {\n  ...pub,\n  public_image_url: `https://picsum.photos/seed/${seed}/1080/720`,\n};"
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000045",
+      "name": "Set Placeholder URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 400]
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000046",
+      "name": "Merge Image Branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1660, 300]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Construye el body del request a DeepSeek con JSON.stringify implícito por N8N al retornar.\nconst item = $input.first().json;\n\nconst system = `Eres redactor de PaginaUno.Do, principal diario digital de la República Dominicana. Escribes en español dominicano formal, tono institucional, estilo de agencia de noticias. Recibes un mensaje crudo (correo o WhatsApp) y redactas la misma noticia adaptada a tres formatos: WordPress (nota), Facebook (post) e Instagram (caption). Devuelves SIEMPRE JSON estricto con este esquema exacto:\n{\n  \"wp_title\": string (máx 110 chars, titular periodístico neutro y descriptivo, sin puntuación final, sin sensacionalismo),\n  \"wp_body_html\": string (HTML SOLO con <p>. NO usar <h2>, <h3> ni subtítulos. 8-12 párrafos, 500-700 palabras, pirámide invertida. El primer párrafo debe iniciar con la ciudad seguida de punto, espacio, guion largo y espacio: 'Santo Domingo. – Texto...'. Usar comillas para citas literales de fuentes. Atribuir siempre las citas ('explicó', 'informó', 'indicó', 'destacó', 'aseguró')),\n  \"wp_excerpt\": string (máx 200 chars, resumen para SEO),\n  \"wp_categories\": string[] (2-4 categorías del catálogo de PaginaUno.Do; usar nombres exactos como 'Actualidad', 'Nacionales', 'Internacionales', 'Política', 'Economía', 'Farándula', 'Tecnología', 'Ciencia', 'Estilo de Vida', 'Opinión', 'Salud', 'Justicia', 'Policiales', 'Deportes', 'Turismo', 'Alimentación', 'Entretenimiento'. Incluir siempre 'Actualidad' si aplica. Si la noticia menciona una ciudad o provincia dominicana, incluirla como categoría (Santo Domingo, Baní, Barahona, Bonao, Azua, Boca Chica, etc.). Si menciona un país extranjero, incluir el país),\n  \"wp_tags\": string[] (5-10 etiquetas específicas: nombres propios, instituciones, cargos, leyes citadas. Formato Capitalizado. Ej: ['Luis Abinader', 'Ministerio Público', 'Policía Nacional', 'Ley 3-19']. NO son hashtags),\n  \"fb_caption\": string (2-4 párrafos, tono más cercano que el artículo pero manteniendo formalidad, cierra invitando a leer la nota completa),\n  \"ig_caption\": string (máx 2200 chars, párrafo enganchador con voz activa; NO incluir hashtags aquí),\n  \"hashtags\": string[] (5-8 hashtags para Instagram SIN el símbolo #, minúsculas, sin espacios ni tildes, específicos al tema. Ej: ['paginaunodo', 'republicadominicana', 'santodomingo'])\n}\nReglas críticas: nunca inventes hechos, datos, cifras, cargos ni fechas que no estén explícitos en el mensaje. Si falta información clave, redacta con lo disponible y no rellenes con especulación. No uses sensacionalismo ni adjetivos calificativos ('impactante', 'terrible'). Prefiere verbos en pretérito indefinido para hechos y presente para citas.`;\n\nconst user = `Fuente: ${item.source_sender || 'desconocido'}\nAsunto: ${item.source_subject || '(sin asunto)'}\nRecibido: ${item.received_at}\n\n--- Mensaje ---\n${item.source_text || ''}`;\n\nreturn {\n  ...item,\n  body: {\n    model: 'DeepSeek-V3.2',\n    response_format: { type: 'json_object' },\n    messages: [\n      { role: 'system', content: system },\n      { role: 'user',   content: user },\n    ],\n    temperature: 0.3,\n  },\n};\n"
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000030",
+      "name": "Build DeepSeek Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1860, 300]
     },
     {
       "parameters": {
@@ -32,14 +186,14 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"DeepSeek-V3.2\",\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres redactor de PaginaUno.Do, principal diario digital de la República Dominicana. Escribes en español dominicano formal, tono institucional, estilo de agencia de noticias. Recibes un mensaje crudo (correo o WhatsApp) y redactas la misma noticia adaptada a tres formatos: WordPress (nota), Facebook (post) e Instagram (caption). Devuelves SIEMPRE JSON estricto con este esquema exacto:\\n{\\n  \\\"wp_title\\\": string (máx 110 chars, titular periodístico neutro y descriptivo, sin puntuación final, sin sensacionalismo),\\n  \\\"wp_body_html\\\": string (HTML SOLO con <p>. NO usar <h2>, <h3> ni subtítulos. 8-12 párrafos, 500-700 palabras, pirámide invertida. El primer párrafo debe iniciar con la ciudad seguida de punto, espacio, guion largo y espacio: 'Santo Domingo. – Texto...'. Usar comillas para citas literales de fuentes. Atribuir siempre las citas ('explicó', 'informó', 'indicó', 'destacó', 'aseguró')),\\n  \\\"wp_excerpt\\\": string (máx 200 chars, resumen para SEO),\\n  \\\"wp_categories\\\": string[] (2-4 categorías del catálogo de PaginaUno.Do; usar nombres exactos como 'Actualidad', 'Nacionales', 'Internacionales', 'Política', 'Economía', 'Farándula', 'Tecnología', 'Ciencia', 'Estilo de Vida', 'Opinión', 'Salud', 'Justicia', 'Policiales', 'Deportes', 'Turismo', 'Alimentación', 'Entretenimiento'. Incluir siempre 'Actualidad' si aplica. Si la noticia menciona una ciudad o provincia dominicana, incluirla como categoría (Santo Domingo, Baní, Barahona, Bonao, Azua, Boca Chica, etc.). Si menciona un país extranjero, incluir el país),\\n  \\\"wp_tags\\\": string[] (5-10 etiquetas específicas: nombres propios, instituciones, cargos, leyes citadas. Formato Capitalizado. Ej: ['Luis Abinader', 'Ministerio Público', 'Policía Nacional', 'Ley 3-19']. NO son hashtags),\\n  \\\"fb_caption\\\": string (2-4 párrafos, tono más cercano que el artículo pero manteniendo formalidad, cierra invitando a leer la nota completa),\\n  \\\"ig_caption\\\": string (máx 2200 chars, párrafo enganchador con voz activa; NO incluir hashtags aquí),\\n  \\\"hashtags\\\": string[] (5-8 hashtags para Instagram SIN el símbolo #, minúsculas, sin espacios ni tildes, específicos al tema. Ej: ['paginaunodo', 'republicadominicana', 'santodomingo'])\\n}\\nReglas críticas: nunca inventes hechos, datos, cifras, cargos ni fechas que no estén explícitos en el mensaje. Si falta información clave, redacta con lo disponible y no rellenes con especulación. No uses sensacionalismo ni adjetivos calificativos ('impactante', 'terrible'). Prefiere verbos en pretérito indefinido para hechos y presente para citas.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Fuente: {{ $('Load Publication').item.json.source_sender }}\\nAsunto: {{ $('Load Publication').item.json.source_subject || '(sin asunto)' }}\\nRecibido: {{ $('Load Publication').item.json.received_at }}\\n\\n--- Mensaje ---\\n{{ $('Load Publication').item.json.source_text }}\"\n    }\n  ],\n  \"temperature\": 0.3\n}",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
         "options": {}
       },
       "id": "b3a3e003-0003-4003-8003-000000000003",
       "name": "DeepSeek 3-in-1",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [720, 300],
+      "position": [2060, 300],
       "credentials": {
         "httpHeaderAuth": { "id": "REPLACE_WITH_DEEPSEEK_CRED_ID", "name": "DeepSeek Bearer" }
       }
@@ -53,7 +207,7 @@
       "name": "Parse JSON",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 300]
+      "position": [2260, 300]
     },
     {
       "parameters": {
@@ -61,14 +215,14 @@
         "url": "http://image-renderer:3001/render",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"template\": \"article\",\n  \"vars\": {\n    \"title\": \"{{ $json.content.wp_title }}\",\n    \"category\": \"{{ $json.content.wp_category }}\",\n    \"date\": \"{{ $now.format('dd LLL yyyy') }}\",\n    \"image_url\": \"https://picsum.photos/1080/720\"\n  },\n  \"width\": 1080,\n  \"height\": 1080\n}",
+        "jsonBody": "={\n  \"template\": \"article\",\n  \"vars\": {\n    \"title\": {{ JSON.stringify($('Parse JSON').item.json.content.wp_title) }},\n    \"category\": {{ JSON.stringify(($('Parse JSON').item.json.content.wp_categories || [])[0] || 'Actualidad') }},\n    \"date\": {{ JSON.stringify($now.format('dd LLL yyyy')) }},\n    \"image_url\": {{ JSON.stringify($('Merge Image Branches').item.json.public_image_url) }}\n  },\n  \"width\": 1080,\n  \"height\": 1080\n}",
         "options": {}
       },
       "id": "b3a3e003-0003-4003-8003-000000000005",
       "name": "Render Image",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 300]
+      "position": [2460, 300]
     },
     {
       "parameters": {
@@ -80,7 +234,7 @@
       "name": "Update Publication",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1440, 300],
+      "position": [2660, 300],
       "credentials": {
         "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
       }
@@ -111,7 +265,7 @@
       "name": "Is WhatsApp sender?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1680, 300]
+      "position": [2860, 300]
     },
     {
       "parameters": {
@@ -133,7 +287,7 @@
       "name": "Notify Sender via WA",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1920, 220]
+      "position": [3060, 220]
     }
   ],
   "connections": {
@@ -141,6 +295,36 @@
       "main": [[{ "node": "Load Publication", "type": "main", "index": 0 }]]
     },
     "Load Publication": {
+      "main": [[{ "node": "Has WA Image?", "type": "main", "index": 0 }]]
+    },
+    "Has WA Image?": {
+      "main": [
+        [{ "node": "Get WA Media URL", "type": "main", "index": 0 }],
+        [{ "node": "Set Placeholder URL", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get WA Media URL": {
+      "main": [[{ "node": "Download WA Image", "type": "main", "index": 0 }]]
+    },
+    "Download WA Image": {
+      "main": [[{ "node": "Set JPG Filename", "type": "main", "index": 0 }]]
+    },
+    "Set JPG Filename": {
+      "main": [[{ "node": "Upload to Litterbox", "type": "main", "index": 0 }]]
+    },
+    "Upload to Litterbox": {
+      "main": [[{ "node": "Extract Public URL", "type": "main", "index": 0 }]]
+    },
+    "Extract Public URL": {
+      "main": [[{ "node": "Merge Image Branches", "type": "main", "index": 0 }]]
+    },
+    "Set Placeholder URL": {
+      "main": [[{ "node": "Merge Image Branches", "type": "main", "index": 1 }]]
+    },
+    "Merge Image Branches": {
+      "main": [[{ "node": "Build DeepSeek Body", "type": "main", "index": 0 }]]
+    },
+    "Build DeepSeek Body": {
       "main": [[{ "node": "DeepSeek 3-in-1", "type": "main", "index": 0 }]]
     },
     "DeepSeek 3-in-1": {

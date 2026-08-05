@@ -101,33 +101,63 @@
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            { "id": "1", "name": "sender", "value": "={{ $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].from }}", "type": "string" },
-            { "id": "2", "name": "type",   "value": "={{ $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].type }}", "type": "string" },
-            { "id": "3", "name": "text",   "value": "={{ (() => { const m = $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0]; return m.text?.body || m.image?.caption || m.video?.caption || m.document?.caption || ''; })() }}", "type": "string" },
-            { "id": "4", "name": "media",  "value": "={{ $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].image || $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].video || $('Webhook WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].document || {} }}", "type": "object" }
-          ]
-        },
-        "options": {}
+        "language": "javaScript",
+        "jsCode": "// Extrae datos del mensaje WA + detecta comando LISTO.\nconst msg = $input.first().json.body.entry[0].changes[0].value.messages[0];\nconst sender = msg.from;\nconst type = msg.type;\nconst rawText = msg.text?.body || msg.image?.caption || msg.video?.caption || msg.document?.caption || '';\n\n// El mensaje es un cierre si consiste SÓLO en LISTO (con puntuación/emojis permitidos)\n// Ejemplos que matchean: 'LISTO', 'listo', 'Listo!', 'LISTO.', 'LISTO ✅'\n// Ejemplos que NO matchean: 'El acto está listo', 'LISTO para publicar'\nconst isClosing = /^\\s*listo[\\s!.✓✅👍]*$/i.test(rawText);\n\n// Si es cierre, no queremos ese texto en el buffer (sería basura)\nconst text = isClosing ? '' : rawText;\n\n// Media como array (permite acumular múltiples adjuntos entre mensajes)\nconst mediaItem = msg.image ? { type: 'image', ...msg.image }\n                : msg.video ? { type: 'video', ...msg.video }\n                : msg.document ? { type: 'document', ...msg.document }\n                : null;\nconst media = mediaItem ? [mediaItem] : [];\n\nreturn {\n  sender,\n  type,\n  text,\n  media,\n  isClosing,\n  raw: msg,\n};\n"
       },
-      "id": "b2a2e002-0002-4002-8002-000000000003",
-      "name": "Normalize",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [680, 360]
+      "id": "b2a2e002-0002-4002-8002-000000000020",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 420]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO publications (source_type, source_raw, source_sender, source_text, source_media)\nVALUES ('whatsapp', '{{ JSON.stringify($('Webhook WhatsApp').item.json.body).replace(/'/g, \"''\") }}'::jsonb, '{{ String($json.sender).replace(/'/g, \"''\") }}', '{{ String($json.text).replace(/'/g, \"''\") }}', '{{ JSON.stringify($json.media).replace(/'/g, \"''\") }}'::jsonb)\nRETURNING id;",
+        "query": "=WITH existing AS (\n  SELECT id FROM publications\n  WHERE source_type = 'whatsapp'\n    AND source_sender = '{{ String($json.sender).replace(/'/g, \"''\") }}'\n    AND status = 'draft'\n    AND received_at > NOW() - INTERVAL '4 hours'\n  ORDER BY received_at DESC\n  LIMIT 1\n),\nupdated AS (\n  UPDATE publications\n  SET source_text = CASE\n        WHEN COALESCE(source_text, '') = '' THEN '{{ String($json.text).replace(/'/g, \"''\") }}'\n        WHEN '{{ String($json.text).replace(/'/g, \"''\") }}' = '' THEN source_text\n        ELSE source_text || E'\\n\\n' || '{{ String($json.text).replace(/'/g, \"''\") }}'\n      END,\n      source_media = source_media || '{{ JSON.stringify($json.media).replace(/'/g, \"''\") }}'::jsonb\n  WHERE id IN (SELECT id FROM existing)\n  RETURNING id, 'appended' AS action\n),\ninserted AS (\n  INSERT INTO publications (source_type, source_raw, source_sender, source_text, source_media, status)\n  SELECT 'whatsapp',\n         '{{ JSON.stringify($('Webhook WhatsApp').item.json.body).replace(/'/g, \"''\") }}'::jsonb,\n         '{{ String($json.sender).replace(/'/g, \"''\") }}',\n         '{{ String($json.text).replace(/'/g, \"''\") }}',\n         '{{ JSON.stringify($json.media).replace(/'/g, \"''\") }}'::jsonb,\n         'draft'\n  WHERE NOT EXISTS (SELECT 1 FROM existing)\n    AND ({{ $json.isClosing ? 'false' : 'true' }})\n  RETURNING id, 'created' AS action\n)\nSELECT id, action FROM updated\nUNION ALL\nSELECT id, action FROM inserted;",
         "options": {}
       },
       "id": "b2a2e002-0002-4002-8002-000000000004",
-      "name": "Insert Publication",
+      "name": "Upsert Draft",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [900, 360],
+      "position": [900, 420],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "is-closing-and-has-draft",
+              "leftValue": "={{ $('Parse Message').item.json.isClosing && $json.id }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000021",
+      "name": "Is Closing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1120, 420]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE publications SET status = 'pending' WHERE id = '{{ $json.id }}'::uuid AND status = 'draft' RETURNING id;",
+        "options": {}
+      },
+      "id": "b2a2e002-0002-4002-8002-000000000022",
+      "name": "Close Draft",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1340, 340],
       "credentials": {
         "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
       }
@@ -141,7 +171,7 @@
       "name": "Trigger Generate Content",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1120, 360]
+      "position": [1560, 340]
     }
   ],
   "connections": {
@@ -159,14 +189,23 @@
     },
     "Is Inbound Message": {
       "main": [
-        [{ "node": "Normalize", "type": "main", "index": 0 }],
+        [{ "node": "Parse Message", "type": "main", "index": 0 }],
         []
       ]
     },
-    "Normalize": {
-      "main": [[{ "node": "Insert Publication", "type": "main", "index": 0 }]]
+    "Parse Message": {
+      "main": [[{ "node": "Upsert Draft", "type": "main", "index": 0 }]]
     },
-    "Insert Publication": {
+    "Upsert Draft": {
+      "main": [[{ "node": "Is Closing?", "type": "main", "index": 0 }]]
+    },
+    "Is Closing?": {
+      "main": [
+        [{ "node": "Close Draft", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Close Draft": {
       "main": [[{ "node": "Trigger Generate Content", "type": "main", "index": 0 }]]
     }
   },
