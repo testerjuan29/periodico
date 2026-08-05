@@ -14,7 +14,7 @@ const app = Fastify({ logger: true });
 let browser: Browser | null = null;
 
 async function getBrowser(): Promise<Browser> {
-  if (browser && browser.connected) return browser;
+  if (browser?.connected) return browser;
   browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
@@ -90,7 +90,9 @@ app.post<{ Body: RenderBody }>('/render', async (req, reply) => {
   return { id, path: outPath, url: `/output/${id}.jpg` };
 });
 
-app.listen({ port: PORT, host: '0.0.0.0' })
+// '::' = dual-stack: acepta IPv4 e IPv6. Necesario para la red privada de
+// Railway (solo IPv6); en Docker local funciona igual que 0.0.0.0.
+app.listen({ port: PORT, host: '::' })
   .then(() => app.log.info(`image-renderer listening on ${PORT}`))
   .catch((err) => { app.log.error(err); process.exit(1); });
 
