@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="es" data-line="prensa">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Opción A — prototipo interactivo · Mesa de edición</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════
+   LÍNEAS GRÁFICAS — tres identidades intercambiables en vivo
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 1 · PRENSA (papel cálido, serif editorial) ── */
+html[data-line="prensa"] {
+  --canvas:#E8E3DA; --paper:#F5F2EC; --surface:#FFFFFF; --raised:#FFFFFF;
+  --ink:#1A1614; --ink-soft:rgba(26,22,20,.72); --muted:#77716B;
+  --divider:#E5E0D8; --subtle:#F0EBE1; --hair:rgba(26,22,20,.10);
+  --accent:#B91C1C; --accent-dark:#8F1414; --accent-soft:#F3E1E1; --accent-on:#FFFFFF;
+  --ok:#1F5940;  --ok-soft:#DDECE4;  --ok-ink:#1F5940;
+  --warn:#C87F17; --warn-soft:#F5E9D2; --warn-ink:#8A5710;
+  --info:#163A6C; --info-soft:#DFE5F0; --info-ink:#163A6C;
+  --f-display:'Fraunces', Georgia, serif;
+  --f-ui:'Instrument Sans', system-ui, sans-serif;
+  --f-mono:'JetBrains Mono', ui-monospace, monospace;
+  --r-sm:3px; --r:5px; --r-md:7px; --r-lg:10px;
+  --display-vf:'opsz' 32, 'SOFT' 30, 'WONK' 0;
+  --shadow:0 1px 0 rgba(26,22,20,.04);
+  --shadow-lg:0 8px 24px -6px rgba(26,22,20,.10), 0 2px 8px -2px rgba(26,22,20,.05);
+  --chrome-bg:var(--paper);
+}
+/* ── 2 · SALA DE CONTROL (oscuro, alta densidad) ── */
+html[data-line="control"] {
+  --canvas:#08090B; --paper:#101216; --surface:#171A1F; --raised:#1D2127;
+  --ink:#E9EAEC; --ink-soft:rgba(233,234,236,.74); --muted:#878B93;
+  --divider:#252932; --subtle:#1B1E24; --hair:rgba(233,234,236,.09);
+  --accent:#E5484D; --accent-dark:#C13A3F; --accent-soft:#31191B; --accent-on:#FFFFFF;
+  --ok:#3DD68C;  --ok-soft:#12291F;  --ok-ink:#3DD68C;
+  --warn:#E5A94D; --warn-soft:#2C2113; --warn-ink:#E5A94D;
+  --info:#5B9DF9; --info-soft:#14213A; --info-ink:#5B9DF9;
+  --f-display:'Instrument Sans', system-ui, sans-serif;
+  --f-ui:'Instrument Sans', system-ui, sans-serif;
+  --f-mono:'JetBrains Mono', ui-monospace, monospace;
+  --r-sm:4px; --r:6px; --r-md:8px; --r-lg:10px;
+  --display-vf:normal;
+  --shadow:0 1px 0 rgba(0,0,0,.4);
+  --shadow-lg:0 12px 32px -8px rgba(0,0,0,.7), 0 2px 8px -2px rgba(0,0,0,.5);
+  --chrome-bg:var(--paper);
+}
+/* ── 3 · INSTITUCIONAL (civic, azul profundo) ── */
+html[data-line="institucional"] {
+  --canvas:#E6EBF0; --paper:#FFFFFF; --surface:#FFFFFF; --raised:#FFFFFF;
+  --ink:#0E141B; --ink-soft:rgba(14,20,27,.76); --muted:#5B6675;
+  --divider:#DCE3EB; --subtle:#F3F6F9; --hair:rgba(14,20,27,.09);
+  --accent:#0B3D6B; --accent-dark:#072B4D; --accent-soft:#E2ECF5; --accent-on:#FFFFFF;
+  --ok:#12694A;  --ok-soft:#DFF1E9;  --ok-ink:#0E5239;
+  --warn:#9A6413; --warn-soft:#FAEEDA; --warn-ink:#7C4F0C;
+  --info:#0B3D6B; --info-soft:#E2ECF5; --info-ink:#0B3D6B;
+  --crit:#B3261E;
+  --f-display:'Source Serif 4', Georgia, serif;
+  --f-ui:'Libre Franklin', system-ui, sans-serif;
+  --f-mono:'JetBrains Mono', ui-monospace, monospace;
+  --r-sm:2px; --r:3px; --r-md:4px; --r-lg:6px;
+  --display-vf:normal;
+  --shadow:0 1px 2px rgba(14,20,27,.06);
+  --shadow-lg:0 10px 30px -8px rgba(14,20,27,.16);
+  --chrome-bg:var(--paper);
+}
+html[data-line="institucional"] .btn-critical { background:var(--crit); }
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--f-ui); background:var(--canvas); color:var(--ink);
+  -webkit-font-smoothing:antialiased; font-variant-numeric:tabular-nums;
+  line-height:1.55; transition:background .3s, color .3s;
+}
+.disp{font-family:var(--f-display); font-variation-settings:var(--display-vf)}
+.mono{font-family:var(--f-mono)}
+.icon{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic-lg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ══════════════════════════════════════════════════════════════
+   BARRA DE CONTROL DEL PROTOTIPO
+   ══════════════════════════════════════════════════════════════ */
+.lab{
+  position:sticky; top:0; z-index:200; background:#0C0D10; color:#F2F0EC;
+  padding:12px 22px; display:flex; align-items:center; gap:22px; flex-wrap:wrap;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.lab-title{font-size:12px;font-weight:600;letter-spacing:.02em;display:flex;align-items:center;gap:9px}
+.lab-title b{background:var(--accent);color:#fff;padding:2px 7px;border-radius:3px;font-size:10px;letter-spacing:.06em}
+.lab-group{display:flex;align-items:center;gap:9px}
+.lab-group>span{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(242,240,236,.45);font-weight:600}
+.seg{display:flex;background:rgba(255,255,255,.07);border-radius:6px;padding:2px}
+.seg button{
+  font-family:inherit;font-size:12px;font-weight:500;color:rgba(242,240,236,.6);
+  background:transparent;border:0;padding:5px 13px;border-radius:4px;cursor:pointer;
+  transition:background .18s,color .18s;
+}
+.seg button:hover{color:#F2F0EC}
+.seg button[aria-pressed="true"]{background:rgba(255,255,255,.15);color:#F2F0EC}
+.lab-hint{margin-left:auto;font-size:11px;color:rgba(242,240,236,.42)}
+.lab-hint kbd{font-family:var(--f-mono);background:rgba(255,255,255,.11);border-radius:3px;padding:1px 5px;font-size:10px}
+
+/* ══════════════════════════════════════════════════════════════
+   APP
+   ══════════════════════════════════════════════════════════════ */
+.stage{padding:22px;max-width:1500px;margin:0 auto}
+.frame{border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid var(--hair)}
+.app{background:var(--paper);display:flex;flex-direction:column;min-height:660px}
+
+.hdr{border-bottom:1px solid var(--divider);background:var(--chrome-bg);flex:none}
+.hdr-top{display:flex;align-items:flex-end;justify-content:space-between;gap:28px;padding:15px 22px}
+.brand{display:flex;align-items:baseline;gap:12px}
+.mark{font-family:var(--f-display);font-size:25px;font-weight:600;line-height:1;font-variation-settings:var(--display-vf);letter-spacing:-.01em}
+.mark em{font-style:normal;color:var(--accent)}
+.mark .tld{font-family:var(--f-mono);font-size:14px;font-weight:400;color:var(--muted)}
+.role{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hdr-right{display:flex;align-items:center;gap:14px}
+.today{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.iconbtn{
+  width:32px;height:32px;border-radius:var(--r);border:1px solid var(--divider);
+  background:var(--surface);color:var(--muted);display:inline-flex;align-items:center;
+  justify-content:center;cursor:pointer;transition:color .18s,border-color .18s;
+}
+.iconbtn:hover{color:var(--ink);border-color:var(--muted)}
+
+.nav{border-top:1px solid var(--divider)}
+.nav-in{display:flex;gap:2px;padding:0 22px}
+.nav-in button{
+  font-family:inherit;font-size:13px;font-weight:500;color:var(--muted);background:none;border:0;
+  border-bottom:2px solid transparent;padding:11px 14px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;transition:color .18s,border-color .18s;
+}
+.nav-in button:hover{color:var(--ink)}
+.nav-in button[aria-current="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.pill{
+  font-family:var(--f-mono);font-size:10px;font-weight:600;color:var(--accent-on);
+  background:var(--warn);border-radius:20px;padding:1px 6px;line-height:1.65;
+}
+.pill.dim{background:var(--muted)}
+
+/* ── Split ── */
+.split{display:grid;grid-template-columns:336px 1fr;flex:1;min-height:0}
+@media(max-width:1080px){.split{grid-template-columns:1fr}}
+
+.rail{border-right:1px solid var(--divider);background:var(--chrome-bg);display:flex;flex-direction:column;min-height:0}
+.rail-top{padding:11px 13px;border-bottom:1px solid var(--divider);display:flex;gap:8px;flex:none}
+.srch{
+  flex:1;background:var(--surface);border:1px solid var(--divider);border-radius:var(--r);
+  height:32px;display:flex;align-items:center;gap:8px;padding:0 10px;font-size:12px;color:var(--muted);
+}
+.rail-scroll{overflow-y:auto;flex:1;min-height:0}
+.rail-scroll::-webkit-scrollbar{width:7px}
+.rail-scroll::-webkit-scrollbar-thumb{background:var(--divider);border-radius:9px}
+
+.row{
+  display:flex;border-bottom:1px solid var(--divider);cursor:pointer;position:relative;
+  background:transparent;width:100%;text-align:left;font-family:inherit;border-left:0;border-right:0;border-top:0;
+  transition:background .15s,opacity .3s;
+}
+.row:hover{background:var(--subtle)}
+.rule{width:3px;flex:none;align-self:stretch;border-radius:0 2px 2px 0}
+.rule.pending{background:var(--warn)} .rule.published{background:var(--ok)}
+.rule.scheduled{background:var(--info)} .rule.rejected{background:var(--muted)}
+.rule.draft{background:var(--muted);opacity:.5}
+.row-b{padding:9px 12px 10px;min-width:0;flex:1}
+.row-m{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.row-t{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.row-h{
+  font-family:var(--f-display);font-size:13.5px;font-weight:600;line-height:1.32;
+  font-variation-settings:'opsz' 14, 'SOFT' 20;letter-spacing:-.003em;color:var(--ink-soft);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.row[aria-selected="true"]{background:var(--surface)}
+.row[aria-selected="true"] .row-h{color:var(--ink)}
+.row[aria-selected="true"]::after{content:'';position:absolute;right:-1px;top:0;bottom:0;width:1px;background:var(--surface)}
+.row.settled{opacity:.4}
+.row.settled .row-h{text-decoration:line-through;text-decoration-color:var(--muted)}
+.row.leaving{opacity:0;transform:translateX(-8px)}
+
+.chip{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:var(--r-sm);white-space:nowrap}
+.chip.pending{background:var(--warn-soft);color:var(--warn-ink)}
+.chip.published{background:var(--ok-soft);color:var(--ok-ink)}
+.chip.scheduled{background:var(--info-soft);color:var(--info-ink)}
+.chip.rejected{background:var(--subtle);color:var(--muted)}
+.chip.draft{background:var(--subtle);color:var(--muted)}
+.src{display:inline-flex;align-items:center;gap:5px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+
+.rail-foot{
+  border-top:1px solid var(--divider);padding:9px 13px;font-size:11px;color:var(--muted);
+  display:flex;justify-content:space-between;flex:none;
+}
+
+/* ── Panel ── */
+.pane{background:var(--surface);display:flex;flex-direction:column;min-width:0;min-height:0}
+.tabs{display:flex;gap:2px;padding:0 20px;border-bottom:1px solid var(--divider);flex:none;align-items:center}
+.tabs button{
+  font-family:inherit;font-size:12px;font-weight:500;color:var(--muted);background:none;border:0;
+  border-bottom:2px solid transparent;padding:11px 12px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:color .18s,border-color .18s;
+}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs .spacer{margin-left:auto;display:flex;gap:6px;align-items:center}
+
+.scroll{padding:22px;flex:1;overflow-y:auto;min-height:0}
+.scroll::-webkit-scrollbar{width:8px}
+.scroll::-webkit-scrollbar-thumb{background:var(--divider);border-radius:9px}
+
+/* ── Tarjeta social 1080×1080 (el template real) ── */
+.social{
+  aspect-ratio:1;width:100%;max-width:340px;border-radius:var(--r);overflow:hidden;
+  display:flex;flex-direction:column;box-shadow:inset 0 0 0 1px var(--hair);
+  background:#111;position:relative;
+}
+.social .ph{
+  flex:1;position:relative;
+  background:linear-gradient(135deg,#8E9AA6,#5D6975 45%,#3E4750);
+}
+.social .ph::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 38%,rgba(0,0,0,.86))}
+.social .cap{position:absolute;left:16px;right:16px;bottom:14px;z-index:2}
+.social .kick{
+  display:inline-block;background:#B91C1C;color:#fff;font-family:var(--f-ui);
+  font-size:8px;font-weight:700;letter-spacing:.16em;padding:3px 7px;text-transform:uppercase;margin-bottom:7px;
+}
+.social .head{font-family:Georgia,serif;color:#fff;font-size:17px;font-weight:700;line-height:1.14;text-shadow:0 2px 12px rgba(0,0,0,.55)}
+.social .foot{
+  height:52px;background:#111;color:#fff;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;border-top:3px solid #B91C1C;
+}
+.social .foot .n{font-family:Arial Black,Arial,sans-serif;font-size:14px;letter-spacing:-.02em}
+.social .foot .n i{font-style:normal;color:#E5484D}
+.social .foot .m{text-align:right;font-family:var(--f-ui);line-height:1.3}
+.social .foot .m .d{font-size:8px;opacity:.7}
+.social .foot .m .h{font-size:9px;font-weight:700}
+
+/* ── Preview WordPress ── */
+.wp-hero{
+  height:150px;border-radius:var(--r);margin-bottom:16px;position:relative;overflow:hidden;
+  background:linear-gradient(125deg,#8E9AA6,#5D6975 50%,#3E4750);
+  box-shadow:inset 0 0 0 1px var(--hair);display:flex;align-items:flex-end;padding:11px;
+}
+.wp-hero span{
+  font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.9);
+  background:rgba(0,0,0,.42);padding:3px 8px;border-radius:var(--r-sm);backdrop-filter:blur(4px);
+}
+.cats{display:flex;gap:6px;margin-bottom:11px;flex-wrap:wrap}
+.cat{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent-dark);padding:3px 8px;border-radius:var(--r-sm)}
+html[data-line="control"] .cat{color:#F0A0A3}
+.pane h1{
+  font-family:var(--f-display);font-size:29px;font-weight:600;line-height:1.11;
+  letter-spacing:-.02em;font-variation-settings:'opsz' 32,'SOFT' 24;margin-bottom:12px;
+}
+.dek{
+  font-family:var(--f-display);font-size:16px;font-style:italic;line-height:1.5;color:var(--ink-soft);
+  border-left:2px solid var(--accent);padding-left:14px;margin-bottom:17px;
+}
+.prose p{font-size:14px;line-height:1.65;color:var(--ink-soft);margin-bottom:12px}
+.prose p:first-of-type::first-letter{
+  font-family:var(--f-display);font-size:42px;font-weight:600;color:var(--accent);
+  float:left;line-height:.82;margin:4px 8px 0 0;
+}
+.tags{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--divider)}
+.tags .lbl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tag{font-size:12px;color:var(--ink-soft);border:1px solid var(--divider);background:var(--subtle);padding:2px 8px;border-radius:var(--r-sm)}
+
+/* ── Preview Facebook ── */
+.fb{max-width:440px;border:1px solid var(--divider);border-radius:var(--r-md);overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.fb-h{display:flex;align-items:center;gap:11px;padding:13px}
+.av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-dark));flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px}
+.fb-h .nm{font-size:13.5px;font-weight:600}
+.fb-h .mt{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.fb-txt{padding:0 13px 11px;font-size:14px;line-height:1.5;color:var(--ink-soft);white-space:pre-line}
+.fb-img{border-top:1px solid var(--divider);border-bottom:1px solid var(--divider)}
+.fb-act{display:flex;padding:5px 13px}
+.fb-act div{flex:1;text-align:center;font-size:12px;color:var(--muted);padding:7px 0;display:flex;align-items:center;justify-content:center;gap:6px}
+
+/* ── Preview Instagram ── */
+.ig{max-width:360px;border:1px solid var(--divider);border-radius:var(--r-md);overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.ig-h{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--divider)}
+.ig-h .av{width:30px;height:30px;font-size:12px}
+.ig-h .nm{font-size:12.5px;font-weight:600}
+.ig-act{display:flex;gap:14px;padding:10px 12px 6px;color:var(--ink)}
+.ig-txt{padding:0 12px 13px;font-size:13px;line-height:1.5;color:var(--ink-soft)}
+.ig-txt .who{font-weight:600;color:var(--ink)}
+.ig-tags{color:var(--info);margin-top:6px;display:block;font-size:12.5px;line-height:1.55}
+
+/* ── Barra de acciones ── */
+.actions{
+  border-top:1px solid var(--divider);background:var(--chrome-bg);padding:12px 20px;
+  display:flex;align-items:center;gap:9px;flex:none;flex-wrap:wrap;
+}
+.btn{
+  font-family:inherit;font-size:13px;font-weight:500;border-radius:var(--r);padding:0 14px;height:37px;
+  display:inline-flex;align-items:center;gap:7px;border:1px solid transparent;cursor:pointer;white-space:nowrap;
+  transition:background .18s,border-color .18s,color .18s,transform .1s;
+}
+.btn:active{transform:translateY(1px)}
+.btn-critical{background:var(--accent);color:var(--accent-on);box-shadow:var(--shadow)}
+.btn-critical:hover{background:var(--accent-dark)}
+.btn-outline{background:transparent;border-color:var(--divider);color:var(--ink)}
+.btn-outline:hover{background:var(--subtle);border-color:var(--muted)}
+.btn-ghost{background:transparent;color:var(--muted)}
+.btn-ghost:hover{background:var(--subtle);color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.kbd{font-family:var(--f-mono);font-size:10px;font-weight:600;background:rgba(255,255,255,.2);border-radius:3px;padding:1px 5px;margin-left:3px}
+.btn-outline .kbd,.btn-ghost .kbd{background:var(--subtle)}
+html[data-line="control"] .btn-outline .kbd,html[data-line="control"] .btn-ghost .kbd{background:rgba(255,255,255,.09)}
+
+.hints{display:flex;gap:15px;padding:8px 20px;border-top:1px solid var(--divider);font-size:11px;color:var(--muted);flex:none;flex-wrap:wrap;background:var(--chrome-bg)}
+.hints b{font-family:var(--f-mono);font-weight:600;color:var(--ink-soft);background:var(--subtle);padding:1px 5px;border-radius:3px}
+
+/* ── Vacío ── */
+.empty{padding:70px 30px;text-align:center;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.empty .ring{width:56px;height:56px;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+.empty h2{font-family:var(--f-display);font-size:25px;font-weight:600;font-variation-settings:var(--display-vf);margin-bottom:8px}
+.empty p{font-size:14px;color:var(--muted);max-width:44ch;margin:0 auto}
+
+/* ── Editor ── */
+.ed{padding:22px;flex:1;overflow-y:auto;min-height:0}
+.fld{margin-bottom:19px}
+.fld>label{display:block;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.imgrow{display:flex;gap:15px;align-items:flex-start}
+.imgbox{width:104px;height:104px;border-radius:var(--r);border:1px solid var(--divider);overflow:hidden;flex:none;position:relative}
+.in-title{
+  width:100%;border:0;border-bottom:1px solid var(--divider);background:transparent;padding:6px 0;
+  font-family:var(--f-display);font-size:26px;font-weight:600;line-height:1.15;letter-spacing:-.018em;
+  font-variation-settings:'opsz' 32,'SOFT' 24;color:var(--ink);outline:none;
+}
+.in-title:focus{border-bottom-color:var(--ink)}
+.in-dek{
+  width:100%;border:0;border-left:2px solid var(--accent);background:transparent;padding:3px 0 3px 14px;
+  font-family:var(--f-display);font-size:16px;font-style:italic;line-height:1.5;color:var(--ink-soft);
+  outline:none;resize:none;
+}
+.tagbox{display:flex;gap:6px;flex-wrap:wrap;border:1px solid var(--divider);border-radius:var(--r);padding:8px;background:var(--surface);min-height:40px}
+.tagbox .t{display:inline-flex;align-items:center;gap:6px;background:var(--subtle);border-radius:var(--r-sm);padding:3px 8px;font-size:12px;color:var(--ink-soft)}
+.tagbox .t button{background:none;border:0;color:var(--muted);cursor:pointer;padding:0;display:flex;font-size:13px;line-height:1}
+.toolbar{display:flex;gap:2px;align-items:center;border:1px solid var(--divider);border-bottom:0;border-radius:var(--r) var(--r) 0 0;background:var(--subtle);padding:5px 8px}
+.toolbar button{
+  width:29px;height:29px;border-radius:var(--r-sm);border:0;background:transparent;color:var(--ink-soft);
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;
+}
+.toolbar button:hover{background:var(--divider)}
+.toolbar button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.toolbar .sep{width:1px;height:18px;background:var(--divider);margin:0 5px}
+.editor{
+  border:1px solid var(--divider);border-radius:0 0 var(--r) var(--r);background:var(--paper);
+  padding:16px 20px;min-height:200px;font-size:14px;line-height:1.65;color:var(--ink-soft);outline:none;
+}
+.editor:focus{box-shadow:inset 0 0 0 1px var(--hair)}
+.editor p{margin-bottom:11px}
+.editor p:first-child::first-letter{font-family:var(--f-display);font-size:38px;font-weight:600;color:var(--accent);float:left;line-height:.82;margin:3px 7px 0 0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:19px}
+@media(max-width:760px){.two{grid-template-columns:1fr}}
+.ta{width:100%;border:1px solid var(--divider);border-radius:var(--r);background:var(--surface);padding:10px 12px;font-family:inherit;font-size:13px;line-height:1.55;color:var(--ink-soft);outline:none;resize:vertical}
+.savebar{
+  position:sticky;bottom:0;border-top:1px solid var(--divider);background:var(--chrome-bg);
+  padding:12px 0 0;margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+
+/* ── Bitácora ── */
+.log{border-top:1px solid var(--divider);padding:16px 20px;flex:none;max-height:170px;overflow-y:auto;background:var(--chrome-bg)}
+.log h3{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.log ol{list-style:none;display:flex;flex-direction:column;gap:11px}
+.log li{display:flex;gap:11px;position:relative}
+.log li:not(:last-child)::before{content:'';position:absolute;left:11px;top:23px;bottom:-11px;width:1px;background:var(--divider)}
+.log .dot{width:23px;height:23px;border-radius:50%;border:1px solid var(--divider);background:var(--surface);display:flex;align-items:center;justify-content:center;flex:none}
+.log .who{font-size:11px;color:var(--muted);margin-top:1px}
+.log .act{font-size:12.5px;font-weight:500}
+.log .when{font-size:11px;color:var(--muted);margin-left:auto;font-family:var(--f-mono)}
+
+/* ── Modal ── */
+.veil{position:fixed;inset:0;background:rgba(10,9,8,.5);backdrop-filter:blur(3px);z-index:300;display:flex;align-items:flex-start;justify-content:center;padding-top:14vh}
+.veil[hidden]{display:none}
+.modal{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);width:min(430px,92vw);overflow:hidden;border:1px solid var(--hair)}
+.modal-h{padding:18px 20px 0}
+.modal-h h3{font-family:var(--f-display);font-size:20px;font-weight:600;font-variation-settings:var(--display-vf)}
+.modal-h p{font-size:13px;color:var(--muted);margin-top:5px}
+.modal-b{padding:18px 20px}
+.modal-f{padding:13px 20px;background:var(--chrome-bg);border-top:1px solid var(--divider);display:flex;gap:9px;justify-content:flex-end}
+.dtin{width:100%;border:1px solid var(--divider);border-radius:var(--r);background:var(--paper);padding:10px 12px;font-family:var(--f-mono);font-size:14px;color:var(--ink);outline:none}
+.quick{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+.quick button{font-family:inherit;font-size:12px;border:1px solid var(--divider);background:var(--surface);color:var(--ink-soft);border-radius:var(--r);padding:5px 11px;cursor:pointer}
+.quick button:hover{border-color:var(--muted)}
+
+/* ── Paleta ⌘K ── */
+.pal{width:min(560px,94vw);background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);overflow:hidden;border:1px solid var(--hair)}
+.pal-in{display:flex;align-items:center;gap:11px;padding:14px 16px;border-bottom:1px solid var(--divider)}
+.pal-in input{flex:1;border:0;background:transparent;font-family:inherit;font-size:15px;color:var(--ink);outline:none}
+.pal-in input::placeholder{color:var(--muted)}
+.pal-list{max-height:330px;overflow-y:auto;padding:6px 0}
+.pal-sec{padding:9px 16px 4px;font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.pal-i{display:flex;align-items:center;gap:11px;padding:9px 16px;font-size:13px;cursor:pointer;color:var(--ink-soft)}
+.pal-i:hover,.pal-i.on{background:var(--subtle);color:var(--ink)}
+.pal-i .k{margin-left:auto;font-family:var(--f-mono);font-size:10px;color:var(--muted)}
+
+/* ── Toast deshacer ── */
+.toasts{position:fixed;bottom:24px;right:24px;z-index:400;display:flex;flex-direction:column;gap:10px}
+.toast{
+  background:#15130F;color:#F2F0EC;border-radius:var(--r-md);padding:12px 14px;
+  display:flex;align-items:center;gap:13px;box-shadow:var(--shadow-lg);font-size:13px;
+  animation:pop .26s cubic-bezier(.16,1,.3,1);min-width:330px;
+}
+html[data-line="institucional"] .toast{background:#0E141B}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.toast.out{animation:away .22s forwards}
+@keyframes away{to{opacity:0;transform:translateX(14px)}}
+.toast .ring{width:23px;height:23px;flex:none}
+.toast .ring circle.p{stroke-dasharray:88;animation:cnt 8s linear forwards}
+@keyframes cnt{from{stroke-dashoffset:0}to{stroke-dashoffset:88}}
+.toast .msg{flex:1;min-width:0}
+.toast .msg b{display:block;font-weight:400;color:rgba(242,240,236,.62);font-size:11.5px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toast button{
+  font-family:inherit;font-size:12px;font-weight:600;color:#F2F0EC;background:rgba(255,255,255,.15);
+  border:0;border-radius:var(--r-sm);padding:6px 12px;cursor:pointer;flex:none;
+}
+.toast button:hover{background:rgba(255,255,255,.24)}
+
+/* ── Sistema ── */
+.sysgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:18px;margin-top:20px}
+.syscard{background:var(--paper);border:1px solid var(--divider);border-radius:var(--r-lg);padding:18px}
+.syscard>h3{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.sw{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.sw i{width:30px;height:30px;border-radius:var(--r);flex:none;box-shadow:inset 0 0 0 1px var(--hair)}
+.sw .nm{font-size:12.5px;font-weight:500}
+.sw .hx{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-left:auto}
+.ty{padding:9px 0;border-bottom:1px solid var(--divider)}
+.ty:last-child{border:0}
+.ty .lb{font-family:var(--f-mono);font-size:10px;color:var(--muted);margin-bottom:3px}
+.note{font-size:13px;color:var(--muted);line-height:1.6;max-width:74ch}
+.sec-h{margin:34px 0 6px;font-family:var(--f-display);font-size:23px;font-weight:600;font-variation-settings:var(--display-vf)}
+</style>
+</head>
+<body>
+
+<div class="lab">
+  <span class="lab-title"><b>OPCIÓN A</b> Prototipo interactivo</span>
+  <div class="lab-group">
+    <span>Línea gráfica</span>
+    <div class="seg" id="lineSeg">
+      <button data-l="prensa" aria-pressed="true">Prensa</button>
+      <button data-l="control" aria-pressed="false">Sala de control</button>
+      <button data-l="institucional" aria-pressed="false">Institucional</button>
+    </div>
+  </div>
+  <div class="lab-group">
+    <span>Vista</span>
+    <div class="seg" id="viewSeg">
+      <button data-v="app" aria-pressed="true">App</button>
+      <button data-v="sys" aria-pressed="false">Sistema</button>
+    </div>
+  </div>
+  <span class="lab-hint">Probá: <kbd>j</kbd><kbd>k</kbd> mover · <kbd>A</kbd> aprobar · <kbd>S</kbd> programar · <kbd>R</kbd> descartar · <kbd>E</kbd> editar · <kbd>⌘K</kbd></span>
+</div>
+
+<div class="stage">
+
+<!-- ══════════════ APP ══════════════ -->
+<div id="viewApp">
+  <div class="frame">
+    <div class="app">
+      <div class="hdr">
+        <div class="hdr-top">
+          <div class="brand">
+            <span class="mark">Pagina<em>Uno</em><span class="tld">.do</span></span>
+            <span class="role">Mesa de edición</span>
+          </div>
+          <div class="hdr-right">
+            <span class="today">viernes 31 de julio, 2026</span>
+            <button class="iconbtn" id="btnPal" title="Comandos (⌘K)">
+              <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            </button>
+          </div>
+        </div>
+        <nav class="nav"><div class="nav-in">
+          <button aria-current="true">Pendientes <span class="pill" id="navCount">6</span></button>
+          <button>En construcción <span class="pill dim">1</span></button>
+          <button>Programadas</button>
+          <button>Al aire</button>
+          <button>Descartadas</button>
+        </div></nav>
+      </div>
+
+      <div class="split">
+        <aside class="rail">
+          <div class="rail-top">
+            <div class="srch">
+              <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              Buscar
+            </div>
+            <button class="iconbtn" title="Filtros">
+              <svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+            </button>
+          </div>
+          <div class="rail-scroll" id="rail"></div>
+          <div class="rail-foot">
+            <span id="railLeft">6 en cola</span>
+            <span class="mono" id="railDone">0 cerradas hoy</span>
+          </div>
+        </aside>
+
+        <div class="pane" id="pane"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SISTEMA ══════════════ -->
+<div id="viewSys" hidden>
+  <h2 class="sec-h" id="sysTitle">Línea gráfica — Prensa</h2>
+  <p class="note" id="sysNote"></p>
+
+  <div class="sysgrid">
+    <div class="syscard">
+      <h3>Superficies</h3>
+      <div class="sw"><i style="background:var(--canvas)"></i><span class="nm">Lienzo</span><span class="hx" data-v="--canvas"></span></div>
+      <div class="sw"><i style="background:var(--paper)"></i><span class="nm">Papel · chrome</span><span class="hx" data-v="--paper"></span></div>
+      <div class="sw"><i style="background:var(--surface)"></i><span class="nm">Superficie · contenido</span><span class="hx" data-v="--surface"></span></div>
+      <div class="sw"><i style="background:var(--subtle)"></i><span class="nm">Sutil · hover</span><span class="hx" data-v="--subtle"></span></div>
+      <div class="sw"><i style="background:var(--divider)"></i><span class="nm">Divisor</span><span class="hx" data-v="--divider"></span></div>
+    </div>
+
+    <div class="syscard">
+      <h3>Tinta y acento</h3>
+      <div class="sw"><i style="background:var(--ink)"></i><span class="nm">Tinta</span><span class="hx" data-v="--ink"></span></div>
+      <div class="sw"><i style="background:var(--muted)"></i><span class="nm">Apagado</span><span class="hx" data-v="--muted"></span></div>
+      <div class="sw"><i style="background:var(--accent)"></i><span class="nm">Acento · crítico</span><span class="hx" data-v="--accent"></span></div>
+      <div class="sw"><i style="background:var(--accent-soft)"></i><span class="nm">Acento suave</span><span class="hx" data-v="--accent-soft"></span></div>
+    </div>
+
+    <div class="syscard">
+      <h3>Estados semánticos</h3>
+      <div class="sw"><i style="background:var(--warn)"></i><span class="nm">Pendiente</span><span class="hx" data-v="--warn"></span></div>
+      <div class="sw"><i style="background:var(--info)"></i><span class="nm">Programada</span><span class="hx" data-v="--info"></span></div>
+      <div class="sw"><i style="background:var(--ok)"></i><span class="nm">Al aire</span><span class="hx" data-v="--ok"></span></div>
+      <div class="sw"><i style="background:var(--accent)"></i><span class="nm">Falló</span><span class="hx" data-v="--accent"></span></div>
+      <div style="display:flex;gap:7px;margin-top:13px;flex-wrap:wrap">
+        <span class="chip pending">Pendiente</span><span class="chip scheduled">Programada</span>
+        <span class="chip published">Al aire</span><span class="chip draft">Construcción</span>
+      </div>
+    </div>
+
+    <div class="syscard">
+      <h3>Escala tipográfica</h3>
+      <div class="ty"><div class="lb">display · 44 / titular de sección</div><div class="disp" style="font-size:44px;font-weight:600;line-height:1.05;letter-spacing:-.025em">Cierre</div></div>
+      <div class="ty"><div class="lb">headline · 24 / titular de nota</div><div class="disp" style="font-size:24px;font-weight:600;line-height:1.15;letter-spacing:-.015em">Consejo Nacional</div></div>
+      <div class="ty"><div class="lb">lead · 17 / bajada</div><div class="disp" style="font-size:17px;font-style:italic">El órgano constitucional inicia…</div></div>
+      <div class="ty"><div class="lb">body · 15 / cuerpo</div><div style="font-size:15px">Santo Domingo. – El Consejo Nacional…</div></div>
+      <div class="ty"><div class="lb">meta · 13 · label · 12 · mono</div><div style="font-size:13px;color:var(--muted)">Remitente · <span class="mono">11:42</span></div></div>
+    </div>
+
+    <div class="syscard">
+      <h3>Controles</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:13px">
+        <button class="btn btn-critical">Al aire ahora</button>
+        <button class="btn btn-outline">Programar</button>
+        <button class="btn btn-ghost">Descartar</button>
+      </div>
+      <div class="srch" style="margin-bottom:9px">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Buscar
+      </div>
+      <div class="tagbox">
+        <span class="t">Luis Abinader <button>×</button></span>
+        <span class="t">INFOTEP <button>×</button></span>
+      </div>
+    </div>
+
+    <div class="syscard">
+      <h3>Imagen social · 1080×1080</h3>
+      <div class="social" style="max-width:100%">
+        <div class="ph"><div class="cap">
+          <span class="kick">Actualidad</span>
+          <div class="head">Consejo Nacional de la Magistratura evaluará este lunes</div>
+        </div></div>
+        <div class="foot">
+          <div class="n">PAGINA<i>UNO</i></div>
+          <div class="m"><div class="d">31 jul 2026</div><div class="h">@paginauno.do</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="veil" id="veil" hidden><div id="veilBody"></div></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   DATOS — titulares reales de la base del proyecto
+   ══════════════════════════════════════════════════════════════ */
+const PUBS = [
+  { t:'11:52', src:'email', from:'redaccion@paginauno.do', st:'published',
+    title:'Banco Central mantiene tasa de política monetaria en 5.25%',
+    dek:'La entidad monetaria decidió sostener su tasa de referencia tras evaluar el comportamiento de la inflación en el trimestre.',
+    cats:['Actualidad','Economía'], tags:['Banco Central','Política Monetaria','Inflación'],
+    body:['Santo Domingo. – El Banco Central de la República Dominicana informó que mantendrá su tasa de política monetaria en 5.25% anual, tras la reunión de política monetaria correspondiente al mes de julio.','La decisión se sustenta en el comportamiento de la inflación, que se mantiene dentro del rango meta establecido por la institución para el presente año.'],
+    fb:'El Banco Central mantiene la tasa de política monetaria en 5.25%.\n\nLa decisión se tomó tras evaluar el comportamiento de la inflación, que permanece dentro del rango meta.\n\nLee la nota completa en PaginaUno.Do',
+    ig:'El Banco Central sostiene su tasa de referencia en 5.25% tras la reunión de julio. La inflación se mantiene dentro del rango meta proyectado para el año.',
+    hash:['paginaunodo','republicadominicana','economia','bancocentral','politicamonetaria'], log:[
+      {a:'Editada', w:'cliente@periodico.com', t:'hace 22 min', c:'text-warn'},
+      {a:'Al aire', w:'cliente@periodico.com', t:'hace 18 min', c:'text-ok'}] },
+
+  { t:'11:42', src:'wa', from:'18092598816', st:'pending',
+    title:'Consejo Nacional de la Magistratura evaluará este lunes a magistrados',
+    dek:'El órgano constitucional inicia el proceso de evaluación de desempeño de los jueces de las altas cortes, conforme al calendario establecido.',
+    cats:['Actualidad','Nacionales','Justicia'], tags:['Consejo Nacional de la Magistratura','Poder Judicial','Suprema Corte de Justicia','Santo Domingo'],
+    body:['Santo Domingo. – El Consejo Nacional de la Magistratura iniciará este lunes el proceso de evaluación de desempeño de los magistrados de las altas cortes, conforme al calendario establecido por el órgano constitucional.','La sesión estará encabezada por el presidente de la República y contará con la participación de los representantes del Poder Legislativo y del Poder Judicial que integran el consejo.','"El proceso se desarrollará con apego estricto a la Constitución y a la ley", indicó una fuente del órgano al ser consultada sobre la metodología que se aplicará.'],
+    fb:'El Consejo Nacional de la Magistratura evaluará este lunes a los magistrados de las altas cortes.\n\nLa sesión estará encabezada por el presidente de la República, con representantes del Poder Legislativo y Judicial.\n\nTodos los detalles en PaginaUno.Do',
+    ig:'Arranca este lunes la evaluación de desempeño de los magistrados de las altas cortes. El Consejo Nacional de la Magistratura sesionará con representación de los tres poderes del Estado.',
+    hash:['paginaunodo','republicadominicana','justicia','cnm','poderjudicial','santodomingo'], log:[] },
+
+  { t:'11:37', src:'email', from:'redaccion@paginauno.do', st:'pending',
+    title:'MAP audita nóminas públicas para determinar número real de empleados',
+    dek:'El Ministerio de Administración Pública desarrolla una auditoría presencial en terreno para verificar la situación laboral de los empleados públicos.',
+    cats:['Actualidad','Nacionales','Política'], tags:['Ministerio de Administración Pública','Sigmund Freund','Nómina Pública','Tesorería de la Seguridad Social'],
+    body:['Santo Domingo. – El Estado, uno de los tres principales empleadores del país, no sabe con certeza cuántos trabajadores tiene en su nómina debido a la falta de interconexión entre las instituciones públicas para contabilizarlos.','El ministro del MAP, Sigmund Freund, explicó que aunque la Tesorería de la Seguridad Social registra alrededor de 700,000 cotizantes del sector público, esa cifra no puede extrapolarse como el total de trabajadores estatales.','"No son 780,000, son menos. ¿Qué tantos? Tampoco se lo puedo decir", indicó Freund durante un encuentro con editores y ejecutivos de medios de comunicación.'],
+    fb:'El Estado no sabe con certeza cuántos empleados tiene. El MAP desarrolla una auditoría presencial para determinar la cifra real.\n\n"No son 780,000, son menos. ¿Qué tantos? Tampoco se lo puedo decir", dijo el ministro Sigmund Freund.\n\nLee más en PaginaUno.Do',
+    ig:'El Ministerio de Administración Pública audita en terreno las nóminas del Estado. La falta de interconexión entre instituciones impide conocer la cifra exacta de empleados públicos.',
+    hash:['paginaunodo','republicadominicana','nacionales','map','empleopublico'], log:[] },
+
+  { t:'11:20', src:'wa', from:'18092598816', st:'pending',
+    title:'FIFA defiende su plan de inversión y niega que pretenda vender activos',
+    dek:'La federación internacional respondió a las versiones difundidas esta semana sobre una supuesta reestructuración de su portafolio de activos.',
+    cats:['Actualidad','Internacionales','Deportes'], tags:['FIFA','Fútbol','Inversión'],
+    body:['Zúrich. – La Federación Internacional de Fútbol Asociación defendió su plan de inversión y negó categóricamente las versiones que circularon esta semana sobre una supuesta intención de vender parte de sus activos.','El organismo señaló en un comunicado que su estrategia financiera responde a un plan aprobado por su consejo y que no contempla desprenderse de participaciones.'],
+    fb:'La FIFA defiende su plan de inversión y niega que pretenda vender activos.\n\nEl organismo aclaró que su estrategia financiera responde a un plan aprobado por su consejo.\n\nMás en PaginaUno.Do',
+    ig:'La FIFA sale al paso de las versiones sobre una supuesta venta de activos y defiende su plan de inversión aprobado por el consejo.',
+    hash:['paginaunodo','fifa','futbol','deportes','internacionales'], log:[] },
+
+  { t:'11:01', src:'email', from:'redaccion@paginauno.do', st:'pending',
+    title:'Estado compromete 45.4 millones de pesos en incentivos por cinco años',
+    dek:'El compromiso figura en el acuerdo suscrito esta semana y se ejecutará de forma escalonada hasta el año 2031.',
+    cats:['Actualidad','Nacionales','Economía'], tags:['Incentivos','Presupuesto','Gobierno'],
+    body:['Santo Domingo. – El Estado dominicano comprometió 45.4 millones de pesos en incentivos que serán desembolsados de forma escalonada durante los próximos cinco años, conforme al acuerdo suscrito esta semana.','La ejecución quedará sujeta al cumplimiento de las metas establecidas en el documento, según explicaron las autoridades.'],
+    fb:'El Estado compromete 45.4 millones de pesos en incentivos por cinco años.\n\nEl desembolso será escalonado y quedará sujeto al cumplimiento de metas.\n\nDetalles en PaginaUno.Do',
+    ig:'45.4 millones de pesos en incentivos comprometidos por el Estado, con desembolso escalonado hasta 2031 y sujeto al cumplimiento de metas.',
+    hash:['paginaunodo','republicadominicana','economia','presupuesto'], log:[] },
+
+  { t:'10:52', src:'wa', from:'18092598816', st:'pending',
+    title:'Estudio revela que presión tributaria efectiva supera el promedio regional',
+    dek:'La investigación fue presentada esta semana y analiza el peso real de la carga impositiva sobre el sector formal de la economía.',
+    cats:['Actualidad','Economía'], tags:['Impuestos','Presión Tributaria','DGII'],
+    body:['Santo Domingo. – Un estudio presentado esta semana revela que la presión tributaria efectiva sobre el sector formal de la economía dominicana supera el promedio de la región.','El documento analiza el peso real de la carga impositiva y advierte sobre la concentración del esfuerzo fiscal en un grupo reducido de contribuyentes.'],
+    fb:'Un estudio revela que la presión tributaria efectiva en el sector formal supera el promedio regional.\n\nEl documento advierte sobre la concentración del esfuerzo fiscal.\n\nLee la nota en PaginaUno.Do',
+    ig:'La presión tributaria efectiva sobre el sector formal supera el promedio regional, según un estudio presentado esta semana.',
+    hash:['paginaunodo','economia','impuestos','republicadominicana'], log:[] },
+
+  { t:'10:48', src:'email', from:'redaccion@paginauno.do', st:'scheduled', when:'mié 14:00',
+    title:'España reporta entrada masiva de migrantes en Ceuta',
+    dek:'Las autoridades españolas activaron el protocolo de emergencia tras registrar el arribo de miles de personas a la ciudad autónoma.',
+    cats:['Actualidad','Internacionales','España'], tags:['España','Ceuta','Migración'],
+    body:['Ceuta. – Las autoridades españolas reportaron la entrada masiva de migrantes a la ciudad autónoma de Ceuta y activaron el protocolo de emergencia previsto para estos casos.','Los servicios de atención humanitaria fueron desplegados en la zona para asistir a las personas que ingresaron durante las últimas horas.'],
+    fb:'España activa el protocolo de emergencia tras la entrada masiva de migrantes en Ceuta.\n\nLos servicios de atención humanitaria fueron desplegados en la zona.\n\nMás en PaginaUno.Do',
+    ig:'Las autoridades españolas activan el protocolo de emergencia en Ceuta tras el arribo masivo de migrantes a la ciudad autónoma.',
+    hash:['paginaunodo','internacionales','espana','ceuta','migracion'], log:[
+      {a:'Programada', w:'cliente@periodico.com', t:'hace 1 h', c:'text-info', extra:'Para: miércoles 5 de agosto, 14:00'}] },
+
+  { t:'09:12', src:'wa', from:'18095551234', st:'draft',
+    title:'Juegos Centroamericanos y del Caribe inician con ambiente festivo',
+    dek:'El reportero aún no ha enviado el comando LISTO para cerrar el borrador.',
+    cats:[], tags:[], body:['(Borrador en construcción — el reportero sigue enviando mensajes. Se procesará cuando envíe LISTO.)'],
+    fb:'', ig:'', hash:[], log:[] },
+];
+
+const SRC_ICON = {
+  wa:'<svg class="ic" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>',
+  email:'<svg class="ic" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>'
+};
+const ST_LABEL = { pending:'Pendiente', published:'Al aire', scheduled:'Programada', rejected:'Descartada', draft:'Construcción' };
+
+const LINE_NOTES = {
+  prensa:'Herencia de imprenta: papel cálido en vez de blanco puro, Fraunces como serif de titulares con eje óptico variable, y el rojo solo para lo irreversible. El chrome tiene textura de papel y el contenido va sobre blanco puro — así el preview se lee como «lo que se va a publicar» y no como parte de la herramienta. Es la línea con más personalidad y la que menos se parece a un panel administrativo genérico.',
+  control:'Lienzo casi negro pensado para jornadas largas y para que los previews (que son luminosos) resalten como la pieza real. Sin serif: todo Instrument Sans con mono para cifras y horas. Los estados suben de saturación porque sobre oscuro necesitan más fuerza. Es la que mejor aguanta cuatro horas de triage seguidas y la que se ve más «producto de software».',
+  institucional:'Blanco y gris frío con azul profundo de acento — el registro visual de una herramienta pública o de agencia, y el más cercano al tono editorial de PaginaUno («validación de las informaciones desde la fuente»). Source Serif para titulares, Libre Franklin para la interfaz, radios casi rectos. El rojo queda reservado solo para descartar y publicar. Es la más sobria y la que menos discute con el contenido.'
+};
+
+/* ══════════════════════════════════════════════════════════════
+   ESTADO
+   ══════════════════════════════════════════════════════════════ */
+let sel = 1;            // índice seleccionado
+let tab = 'wp';         // wp | fb | ig
+let mode = 'read';      // read | edit
+let pending = null;     // acción con deshacer pendiente
+const state = PUBS.map(p => ({ ...p, log: [...p.log] }));
+
+const rail = document.getElementById('rail');
+const pane = document.getElementById('pane');
+const veil = document.getElementById('veil');
+const veilBody = document.getElementById('veilBody');
+const toasts = document.getElementById('toasts');
+
+/* ── Riel ── */
+function drawRail(){
+  rail.innerHTML = state.map((p,i)=>{
+    const settled = p.st==='published' || p.st==='rejected';
+    const badge = p.st==='pending'
+      ? `<span class="src">${SRC_ICON[p.src]}${p.src==='wa'?'wa':'ml'}</span>`
+      : `<span class="chip ${p.st}">${p.st==='scheduled'? p.when : ST_LABEL[p.st]}</span>`;
+    return `<button class="row ${settled?'settled':''}" role="option" aria-selected="${i===sel}" data-i="${i}">
+      <span class="rule ${p.st}"></span>
+      <span class="row-b">
+        <span class="row-m"><span class="row-t">${p.t}</span>${badge}</span>
+        <span class="row-h">${p.title}</span>
+      </span>
+    </button>`;
+  }).join('');
+  rail.querySelectorAll('.row').forEach(el=>{
+    el.addEventListener('click',()=>{ sel = +el.dataset.i; mode='read'; render(); });
+  });
+  const q = state.filter(p=>p.st==='pending').length;
+  const d = state.filter(p=>p.st==='published'||p.st==='rejected').length;
+  document.getElementById('railLeft').textContent = q===0 ? 'cola vacía' : `${q} en cola`;
+  document.getElementById('railDone').textContent = `${d} cerradas hoy`;
+  document.getElementById('navCount').textContent = q;
+}
+
+/* ── Previews ── */
+function socialCard(p, max){
+  return `<div class="social" ${max?`style="max-width:${max}"`:''}>
+    <div class="ph"><div class="cap">
+      <span class="kick">${p.cats[0]||'Actualidad'}</span>
+      <div class="head">${p.title}</div>
+    </div></div>
+    <div class="foot">
+      <div class="n">PAGINA<i>UNO</i></div>
+      <div class="m"><div class="d">31 jul 2026</div><div class="h">@paginauno.do</div></div>
+    </div>
+  </div>`;
+}
+
+function previewWP(p){
+  return `<div class="wp-hero"><span>imagen destacada · 1080 × 1080</span></div>
+    <div class="cats">${p.cats.map(c=>`<span class="cat">${c}</span>`).join('')}</div>
+    <h1>${p.title}</h1>
+    <p class="dek">${p.dek}</p>
+    <div class="prose">${p.body.map(b=>`<p>${b}</p>`).join('')}</div>
+    ${p.tags.length?`<div class="tags"><span class="lbl">Etiquetas</span>${p.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>`:''}`;
+}
+
+function previewFB(p){
+  return `<div class="fb">
+    <div class="fb-h">
+      <div class="av">P</div>
+      <div><div class="nm">PaginaUno.Do</div>
+        <div class="mt">Ahora ·
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></svg>
+        </div></div>
+    </div>
+    <div class="fb-txt">${p.fb || '—'}</div>
+    <div class="fb-img">${socialCard(p,'100%')}</div>
+    <div class="fb-act">
+      <div><svg class="ic" viewBox="0 0 24 24"><path d="M7 10v12M15 5.9 14 10h5.8a2 2 0 0 1 2 2.3l-1.4 9A2 2 0 0 1 18.4 23H7V10l4.5-9a3 3 0 0 1 3.5 4z"/></svg>Me gusta</div>
+      <div><svg class="ic" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.8-.9L3 20.5l1.5-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>Comentar</div>
+      <div><svg class="ic" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>Compartir</div>
+    </div>
+  </div>`;
+}
+
+function previewIG(p){
+  return `<div class="ig">
+    <div class="ig-h"><div class="av">P</div><div class="nm">paginauno.do</div></div>
+    ${socialCard(p,'100%')}
+    <div class="ig-act">
+      <svg class="ic-lg" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg>
+      <svg class="ic-lg" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.8-.9L3 20.5l1.5-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>
+      <svg class="ic-lg" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>
+    </div>
+    <div class="ig-txt">
+      <span class="who">paginauno.do</span> ${p.ig || '—'}
+      ${p.hash.length?`<span class="ig-tags">${p.hash.map(h=>'#'+h).join(' ')}</span>`:''}
+    </div>
+  </div>`;
+}
+
+/* ── Bitácora ── */
+function logBlock(p){
+  if(!p.log.length) return '';
+  const dot = {
+    'text-ok':'<svg class="ic" viewBox="0 0 24 24" style="color:var(--ok)"><path d="m20 6-11 11-5-5"/></svg>',
+    'text-info':'<svg class="ic" viewBox="0 0 24 24" style="color:var(--info)"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+    'text-warn':'<svg class="ic" viewBox="0 0 24 24" style="color:var(--warn)"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    'text-muted':'<svg class="ic" viewBox="0 0 24 24" style="color:var(--muted)"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+  };
+  return `<div class="log"><h3>Bitácora</h3><ol>${p.log.map(e=>`
+    <li><span class="dot">${dot[e.c]||dot['text-muted']}</span>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span class="act" style="color:var(--${e.c.replace('text-','')})">${e.a}</span>
+          <span class="when">${e.t}</span>
+        </div>
+        <div class="who">${e.w}</div>
+        ${e.extra?`<div class="who" style="margin-top:2px;color:var(--ink-soft)">${e.extra}</div>`:''}
+      </div></li>`).join('')}</ol></div>`;
+}
+
+/* ── Panel ── */
+function render(){
+  drawRail();
+  const q = state.filter(p=>p.st==='pending');
+  if(q.length===0 && mode==='read' && state[sel].st!=='pending' && pending===null && !state.some(p=>p.st==='pending')){
+    // aún permitimos ver notas cerradas; solo mostramos vacío si no hay nada seleccionado útil
+  }
+  const p = state[sel];
+  if(mode==='edit'){ renderEdit(p); return; }
+
+  const preview = tab==='wp'?previewWP(p) : tab==='fb'?previewFB(p) : previewIG(p);
+  const closed = p.st==='published' || p.st==='rejected';
+
+  pane.innerHTML = `
+    <div class="tabs">
+      <button data-t="wp" aria-selected="${tab==='wp'}">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>WordPress</button>
+      <button data-t="fb" aria-selected="${tab==='fb'}">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>Facebook</button>
+      <button data-t="ig" aria-selected="${tab==='ig'}">
+        <svg class="ic" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/></svg>Instagram</button>
+      <span class="spacer">
+        <span class="src">${SRC_ICON[p.src]}${p.from}</span>
+      </span>
+    </div>
+    <div class="scroll">${preview}</div>
+    <div class="actions">
+      ${closed
+        ? `<span class="chip ${p.st}" style="font-size:11px;padding:5px 10px">${ST_LABEL[p.st]}</span>
+           <span style="font-size:13px;color:var(--muted)">Sin acciones disponibles — consultá la bitácora.</span>`
+        : `<button class="btn btn-critical" data-a="approve">
+             <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M4.9 19.1a10 10 0 0 1 0-14.2M19.1 4.9a10 10 0 0 1 0 14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4"/></svg>
+             Al aire ahora <span class="kbd">A</span></button>
+           <button class="btn btn-outline" data-a="schedule">
+             <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+             Programar <span class="kbd">S</span></button>
+           <button class="btn btn-outline" data-a="edit">
+             <svg class="ic" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+             Editar <span class="kbd">E</span></button>
+           <button class="btn btn-ghost" data-a="reject" style="margin-left:auto">
+             <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+             Descartar <span class="kbd">R</span></button>`}
+    </div>
+    ${logBlock(p)}
+    <div class="hints">
+      <span><b>j</b> <b>k</b> mover</span><span><b>1</b><b>2</b><b>3</b> pestañas</span>
+      <span><b>A</b> aprobar</span><span><b>S</b> programar</span>
+      <span><b>R</b> descartar</span><span><b>E</b> editar</span><span><b>⌘K</b> comandos</span>
+    </div>`;
+
+  pane.querySelectorAll('.tabs button[data-t]').forEach(b=>
+    b.addEventListener('click',()=>{ tab=b.dataset.t; render(); }));
+  pane.querySelectorAll('[data-a]').forEach(b=>
+    b.addEventListener('click',()=>act(b.dataset.a)));
+}
+
+/* ── Editor ── */
+function renderEdit(p){
+  pane.innerHTML = `
+    <div class="tabs">
+      <button aria-selected="true">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Editando copy</button>
+      <span class="spacer">
+        <button class="btn btn-ghost" data-a="cancel" style="height:30px;font-size:12px">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Ver preview</button>
+      </span>
+    </div>
+    <div class="ed">
+      <div class="fld">
+        <label>Imagen destacada</label>
+        <div class="imgrow">
+          <div class="imgbox">${socialCard(p,'100%')}</div>
+          <div style="padding-top:4px">
+            <button class="btn btn-outline" style="height:33px;font-size:12px">
+              <svg class="ic" viewBox="0 0 24 24"><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v13M8 7l4-4 4 4"/></svg>
+              Cambiar imagen</button>
+            <p style="font-size:11.5px;color:var(--muted);margin-top:8px;max-width:34ch;line-height:1.5">
+              JPG, PNG o WebP · máx 10 MB. Se re-renderiza con el template automáticamente.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="fld">
+        <label>Titular WordPress</label>
+        <input class="in-title" value="${p.title.replace(/"/g,'&quot;')}" />
+      </div>
+
+      <div class="fld">
+        <label>Bajada</label>
+        <textarea class="in-dek" rows="2">${p.dek}</textarea>
+      </div>
+
+      <div class="two">
+        <div class="fld">
+          <label>Categorías</label>
+          <div class="tagbox">${p.cats.map(c=>`<span class="t">${c} <button>×</button></span>`).join('')}</div>
+        </div>
+        <div class="fld">
+          <label>Etiquetas</label>
+          <div class="tagbox">${p.tags.map(t=>`<span class="t">${t} <button>×</button></span>`).join('')}</div>
+        </div>
+      </div>
+
+      <div class="fld">
+        <label>Cuerpo</label>
+        <div class="toolbar">
+          <button aria-pressed="false" title="Negrita"><svg class="ic" viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z"/></svg></button>
+          <button aria-pressed="false" title="Cursiva"><svg class="ic" viewBox="0 0 24 24"><path d="M19 4h-9M14 20H5M15 4 9 20"/></svg></button>
+          <span class="sep"></span>
+          <button title="Cita"><svg class="ic" viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5H3v7h4c0 4-4 4-4 4zM14 21c3 0 7-1 7-8V5h-7v7h4c0 4-4 4-4 4z"/></svg></button>
+          <button title="Lista"><svg class="ic" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+          <button title="Lista numerada"><svg class="ic" viewBox="0 0 24 24"><path d="M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4l2-3H4"/></svg></button>
+          <span class="sep"></span>
+          <button title="Deshacer"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg></button>
+          <button title="Rehacer"><svg class="ic" viewBox="0 0 24 24"><path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-3-7.7L21 8"/></svg></button>
+        </div>
+        <div class="editor" contenteditable="true">${p.body.map(b=>`<p>${b}</p>`).join('')}</div>
+      </div>
+
+      <div class="two">
+        <div class="fld"><label>Facebook</label>
+          <textarea class="ta" rows="5">${p.fb}</textarea></div>
+        <div class="fld"><label>Instagram — caption (${p.ig.length}/2200)</label>
+          <textarea class="ta" rows="5">${p.ig}</textarea></div>
+      </div>
+
+      <div class="fld">
+        <label>Hashtags de Instagram</label>
+        <div class="tagbox">${p.hash.map(h=>`<span class="t">${h} <button>×</button></span>`).join('')}</div>
+      </div>
+
+      <div class="savebar">
+        <span style="font-size:12px;color:var(--muted)">Sin cambios</span>
+        <div style="display:flex;gap:9px">
+          <button class="btn btn-ghost" data-a="cancel">Cancelar</button>
+          <button class="btn btn-critical" data-a="cancel">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+            Guardar cambios</button>
+        </div>
+      </div>
+    </div>`;
+  pane.querySelectorAll('[data-a="cancel"]').forEach(b=>
+    b.addEventListener('click',()=>{ mode='read'; render(); }));
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ACCIONES
+   ══════════════════════════════════════════════════════════════ */
+function nextPending(from){
+  for(let i=from+1;i<state.length;i++) if(state[i].st==='pending') return i;
+  for(let i=0;i<state.length;i++) if(state[i].st==='pending') return i;
+  return from;
+}
+
+function act(a){
+  const p = state[sel];
+  if(a==='edit'){ mode='edit'; render(); return; }
+  if(p.st==='published' || p.st==='rejected') return;
+
+  if(a==='schedule'){ openSchedule(); return; }
+
+  const prev = p.st;
+  const idx = sel;
+  if(a==='approve'){
+    p.st='published';
+    p.log = [...p.log, {a:'Al aire', w:'cliente@periodico.com', t:'ahora', c:'text-ok'}];
+    toast('Al aire', p.title, ()=>{ p.st=prev; p.log.pop(); sel=idx; render(); });
+  } else if(a==='reject'){
+    p.st='rejected';
+    p.log = [...p.log, {a:'Descartada', w:'cliente@periodico.com', t:'ahora', c:'text-muted'}];
+    toast('Descartada', p.title, ()=>{ p.st=prev; p.log.pop(); sel=idx; render(); });
+  }
+  const nx = nextPending(idx);
+  sel = nx;
+  if(!state.some(x=>x.st==='pending')) { render(); showEmpty(); return; }
+  render();
+}
+
+function showEmpty(){
+  pane.innerHTML = `<div class="empty">
+    <div class="ring"><svg viewBox="0 0 24 24" style="width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="m20 6-11 11-5-5"/></svg></div>
+    <h2>Cola cerrada</h2>
+    <p>No quedan notas pendientes. Cuando llegue una nueva por WhatsApp o correo, aparecerá acá automáticamente y el contador del nav se va a encender.</p>
+    <button class="btn btn-outline" style="margin-top:18px" onclick="location.reload()">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+      Reiniciar el prototipo</button>
+  </div>`;
+}
+
+/* ── Programar ── */
+function openSchedule(){
+  veilBody.innerHTML = `<div class="modal">
+    <div class="modal-h">
+      <h3>Programar cierre</h3>
+      <p>La nota se publicará en WordPress, Facebook e Instagram a la hora indicada.</p>
+    </div>
+    <div class="modal-b">
+      <input class="dtin" type="datetime-local" value="2026-08-05T14:00" />
+      <div class="quick">
+        <button data-q="En 1 hora">En 1 hora</button>
+        <button data-q="Hoy 18:00">Hoy 18:00</button>
+        <button data-q="Mañana 07:00">Mañana 07:00</button>
+        <button data-q="Lunes 09:00">Lunes 09:00</button>
+      </div>
+    </div>
+    <div class="modal-f">
+      <button class="btn btn-ghost" data-x>Cancelar</button>
+      <button class="btn btn-critical" data-ok>
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Programar</button>
+    </div></div>`;
+  veil.hidden = false;
+  veilBody.querySelector('[data-x]').onclick = closeVeil;
+  veilBody.querySelector('[data-ok]').onclick = ()=>{
+    const p = state[sel], prev = p.st, idx = sel;
+    p.st='scheduled'; p.when='mié 14:00';
+    p.log=[...p.log,{a:'Programada',w:'cliente@periodico.com',t:'ahora',c:'text-info',extra:'Para: miércoles 5 de agosto, 14:00'}];
+    closeVeil();
+    toast('Programada', p.title, ()=>{ p.st=prev; delete p.when; p.log.pop(); sel=idx; render(); });
+    sel = nextPending(idx); render();
+  };
+  veilBody.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{
+    veilBody.querySelectorAll('[data-q]').forEach(x=>x.style.borderColor='var(--divider)');
+    b.style.borderColor='var(--accent)';
+  });
+}
+function closeVeil(){ veil.hidden = true; veilBody.innerHTML=''; }
+veil.addEventListener('click', e=>{ if(e.target===veil) closeVeil(); });
+
+/* ── Toast deshacer ── */
+function toast(label, title, undo){
+  const el = document.createElement('div');
+  el.className='toast';
+  el.innerHTML = `
+    <svg class="ring" viewBox="0 0 36 36">
+      <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(242,240,236,.2)" stroke-width="3"/>
+      <circle class="p" cx="18" cy="18" r="14" fill="none" stroke="#3DD68C" stroke-width="3"
+              stroke-linecap="round" transform="rotate(-90 18 18)"/>
+    </svg>
+    <span class="msg">${label}<b>${title}</b></span>
+    <button>Deshacer</button>`;
+  toasts.appendChild(el);
+  const kill = ()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),220); };
+  const timer = setTimeout(kill, 8000);
+  el.querySelector('button').onclick = ()=>{ clearTimeout(timer); undo(); kill(); };
+}
+
+/* ── Paleta ⌘K ── */
+function openPalette(){
+  const q = state.filter(p=>p.st==='pending');
+  veilBody.innerHTML = `<div class="pal">
+    <div class="pal-in">
+      <svg class="icon" viewBox="0 0 24 24" style="color:var(--muted)"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input placeholder="Buscar una nota o ejecutar un comando…" autofocus />
+    </div>
+    <div class="pal-list">
+      <div class="pal-sec">Notas en cola</div>
+      ${q.slice(0,4).map(p=>{
+        const i = state.indexOf(p);
+        return `<div class="pal-i" data-go="${i}">
+          <span class="rule ${p.st}" style="height:15px;border-radius:2px"></span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.title}</span>
+          <span class="k">↵</span></div>`;
+      }).join('') || '<div class="pal-i" style="color:var(--muted)">La cola está vacía</div>'}
+      <div class="pal-sec">Acciones</div>
+      <div class="pal-i" data-cmd="approve">
+        <svg class="ic" viewBox="0 0 24 24" style="color:var(--ok)"><path d="m20 6-11 11-5-5"/></svg>
+        Aprobar la nota seleccionada<span class="k">A</span></div>
+      <div class="pal-i" data-cmd="schedule">
+        <svg class="ic" viewBox="0 0 24 24" style="color:var(--info)"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Programar cierre<span class="k">S</span></div>
+      <div class="pal-i" data-cmd="edit">
+        <svg class="ic" viewBox="0 0 24 24" style="color:var(--warn)"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+        Editar copy<span class="k">E</span></div>
+      <div class="pal-sec">Apariencia</div>
+      <div class="pal-i" data-line="prensa">Línea gráfica: Prensa</div>
+      <div class="pal-i" data-line="control">Línea gráfica: Sala de control</div>
+      <div class="pal-i" data-line="institucional">Línea gráfica: Institucional</div>
+    </div></div>`;
+  veil.hidden = false;
+  veilBody.querySelectorAll('[data-go]').forEach(el=>el.onclick=()=>{ sel=+el.dataset.go; mode='read'; closeVeil(); render(); });
+  veilBody.querySelectorAll('[data-cmd]').forEach(el=>el.onclick=()=>{ const c=el.dataset.cmd; closeVeil(); act(c); });
+  veilBody.querySelectorAll('[data-line]').forEach(el=>el.onclick=()=>{ setLine(el.dataset.line); closeVeil(); });
+  setTimeout(()=>veilBody.querySelector('input')?.focus(),40);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LÍNEA GRÁFICA + VISTA
+   ══════════════════════════════════════════════════════════════ */
+function setLine(l){
+  document.documentElement.dataset.line = l;
+  document.querySelectorAll('#lineSeg button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.l===l)));
+  const names = {prensa:'Prensa', control:'Sala de control', institucional:'Institucional'};
+  document.getElementById('sysTitle').textContent = 'Línea gráfica — ' + names[l];
+  document.getElementById('sysNote').textContent = LINE_NOTES[l];
+  setTimeout(readHex, 40);
+}
+function readHex(){
+  const cs = getComputedStyle(document.documentElement);
+  document.querySelectorAll('.hx[data-v]').forEach(el=>{
+    el.textContent = cs.getPropertyValue(el.dataset.v).trim().toUpperCase();
+  });
+}
+document.querySelectorAll('#lineSeg button').forEach(b=>b.addEventListener('click',()=>setLine(b.dataset.l)));
+document.querySelectorAll('#viewSeg button').forEach(b=>b.addEventListener('click',()=>{
+  const v = b.dataset.v;
+  document.querySelectorAll('#viewSeg button').forEach(x=>x.setAttribute('aria-pressed', String(x.dataset.v===v)));
+  document.getElementById('viewApp').hidden = v!=='app';
+  document.getElementById('viewSys').hidden = v!=='sys';
+  if(v==='sys') readHex();
+}));
+document.getElementById('btnPal').addEventListener('click', openPalette);
+
+/* ── Teclado ── */
+document.addEventListener('keydown', e=>{
+  const typing = /^(INPUT|TEXTAREA)$/.test(e.target.tagName) || e.target.isContentEditable;
+  if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); veil.hidden?openPalette():closeVeil(); return; }
+  if(e.key==='Escape'){ closeVeil(); return; }
+  if(typing || !veil.hidden) return;
+  const k = e.key.toLowerCase();
+  if(k==='j'||e.key==='ArrowDown'){ e.preventDefault(); sel=Math.min(sel+1,state.length-1); mode='read'; render(); }
+  else if(k==='k'||e.key==='ArrowUp'){ e.preventDefault(); sel=Math.max(sel-1,0); mode='read'; render(); }
+  else if(k==='a'){ act('approve'); }
+  else if(k==='s'){ act('schedule'); }
+  else if(k==='r'){ act('reject'); }
+  else if(k==='e'){ act('edit'); }
+  else if(k==='1'){ tab='wp'; render(); }
+  else if(k==='2'){ tab='fb'; render(); }
+  else if(k==='3'){ tab='ig'; render(); }
+});
+
+setLine('prensa');
+render();
+</script>
+</body>
+</html>

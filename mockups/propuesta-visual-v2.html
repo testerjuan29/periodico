@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="es" data-bg="blanco">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Propuesta visual v2 — Mesa de edición</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════
+   PRENSA · REFINADA — mismos tokens, jerarquía y suavidad nuevas
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --canvas:#EBE5DA; --paper:#F5F2EC; --surface:#FFFFFF;
+  --ink:#1A1614; --ink-soft:rgba(26,22,20,.74); --muted:#77716B;
+  --divider:#E5E0D8; --subtle:#F0EBE1; --hair:rgba(26,22,20,.10);
+  --brand:#B91C1C; --brand-dark:#8F1414; --brand-soft:#F3E1E1;
+  --ok:#1F5940; --ok-soft:#DDECE4;
+  --warn:#C87F17; --warn-soft:#F5E9D2; --warn-ink:#8A5710;
+  --info:#163A6C; --info-soft:#DFE5F0;
+  --f-d:'Fraunces',Georgia,serif;
+  --f-u:'Instrument Sans',system-ui,sans-serif;
+  --f-m:'JetBrains Mono',ui-monospace,monospace;
+  /* Radios más suaves: 3-5px → 8-12px. Es el cambio más barato
+     con más impacto en "amigable". */
+  --r-s:6px; --r:8px; --r-m:10px; --r-l:12px;
+  --sh-1:0 1px 2px rgba(26,22,20,.05);
+  --sh-2:0 2px 8px -2px rgba(26,22,20,.08), 0 1px 2px rgba(26,22,20,.05);
+  --sh-3:0 12px 32px -8px rgba(26,22,20,.14), 0 2px 8px -2px rgba(26,22,20,.06);
+  --vf:'opsz' 32,'SOFT' 30,'WONK' 0;
+  --rowhover:rgba(255,255,255,.55);
+}
+
+/* ══════════ FONDOS INTERCAMBIABLES ══════════
+   La identidad (Fraunces, rojo, estados) es idéntica en los tres —
+   solo cambia el sistema de superficies. */
+
+/* BLANCO EDITORIAL — chrome blanco, lienzo apenas gris para que
+   las tarjetas sigan flotando. La opción más limpia y familiar. */
+html[data-bg="blanco"]{
+  --canvas:#F5F5F3;
+  --paper:#FFFFFF;
+  --surface:#FFFFFF;
+  --subtle:#F1F1EE;
+  --divider:#E7E6E2;
+  --hair:rgba(22,20,18,.08);
+  --ink:#1B1917;
+  --ink-soft:rgba(27,25,23,.75);
+  --muted:#75716B;
+  --rowhover:#F5F5F3;
+}
+
+/* GRIS FRÍO — lienzo gris neutro tipo SaaS (GitHub/Stripe).
+   La máxima separación entre chrome, lienzo y tarjetas. */
+html[data-bg="gris"]{
+  --canvas:#EEF0F2;
+  --paper:#F8F9FA;
+  --surface:#FFFFFF;
+  --subtle:#F1F3F5;
+  --divider:#E2E5E8;
+  --hair:rgba(15,18,22,.08);
+  --ink:#16181B;
+  --ink-soft:rgba(22,24,27,.76);
+  --muted:#68707A;
+  --rowhover:rgba(255,255,255,.7);
+}
+
+/* PAPEL — el cálido original, queda para comparar. */
+html[data-bg="papel"]{
+  --canvas:#EBE5DA; --paper:#F5F2EC; --surface:#FFFFFF;
+  --subtle:#F0EBE1; --divider:#E5E0D8; --hair:rgba(26,22,20,.10);
+  --ink:#1A1614; --ink-soft:rgba(26,22,20,.74); --muted:#77716B;
+  --rowhover:rgba(255,255,255,.55);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--f-u);background:#0C0D10;color:var(--ink);
+  -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;
+  line-height:1.55;display:flex;flex-direction:column;overflow:hidden;
+}
+.disp{font-family:var(--f-d);font-variation-settings:var(--vf)}
+.ic{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic-s{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ── Barra del laboratorio ── */
+.lab{
+  flex:none;background:#0C0D10;color:#F2F0EC;padding:10px 18px;
+  display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,.08);
+  font-size:12px;flex-wrap:wrap;
+}
+.lab b.tag{background:var(--brand);color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;letter-spacing:.06em}
+.lab .sep{width:1px;height:16px;background:rgba(255,255,255,.14)}
+.lab button{
+  font-family:inherit;font-size:12px;font-weight:500;color:rgba(242,240,236,.75);
+  background:rgba(255,255,255,.08);border:0;border-radius:6px;padding:6px 12px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;transition:background .15s,color .15s;
+}
+.lab button:hover{background:rgba(255,255,255,.16);color:#fff}
+.lab button[aria-pressed="true"]{background:var(--warn);color:#1A1614;font-weight:600}
+.lab .hint{margin-left:auto;color:rgba(242,240,236,.4);font-size:11px}
+.lab kbd{font-family:var(--f-m);background:rgba(255,255,255,.1);border-radius:3px;padding:1px 5px;font-size:10px}
+
+/* ══════════════ APP ══════════════ */
+.app{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--paper);position:relative}
+
+/* ── 1 · Header en UNA banda ── */
+.hdr{
+  flex:none;display:flex;align-items:center;gap:20px;
+  padding:0 20px;height:56px;border-bottom:1px solid var(--divider);
+  background:var(--paper);position:relative;
+}
+.mark{font-family:var(--f-d);font-size:20px;font-weight:600;line-height:1;font-variation-settings:var(--vf);letter-spacing:-.01em;white-space:nowrap}
+.mark em{font-style:normal;color:var(--brand)}
+.mark .tld{font-family:var(--f-m);font-size:12px;font-weight:400;color:var(--muted)}
+
+/* ── 2 · Tabs píldora con contador integrado ── */
+.tabsnav{display:flex;gap:4px;flex:1;min-width:0}
+.tabsnav button{
+  font-family:inherit;font-size:13px;font-weight:500;color:var(--muted);
+  background:transparent;border:0;border-radius:999px;padding:7px 14px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  transition:background .15s,color .15s;
+}
+.tabsnav button:hover{background:var(--subtle);color:var(--ink)}
+.tabsnav button[aria-current="true"]{background:var(--ink);color:var(--paper)}
+.tabsnav .n{
+  font-family:var(--f-m);font-size:10px;font-weight:600;line-height:1.6;
+  background:var(--warn);color:#fff;border-radius:999px;padding:0 6px;
+}
+.tabsnav button[aria-current="true"] .n{background:var(--warn)}
+.tabsnav .n.dim{background:var(--muted)}
+.clock{font-family:var(--f-m);font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap}
+.clock small{font-family:var(--f-u);font-weight:400;font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-right:10px}
+
+/* ── 9 · Tip descartable ── */
+.tip{
+  flex:none;display:flex;align-items:center;gap:10px;
+  background:var(--info-soft);color:var(--info);
+  padding:7px 20px;font-size:12.5px;border-bottom:1px solid var(--divider);
+  position:relative;
+}
+.tip kbd{font-family:var(--f-m);background:rgba(22,58,108,.12);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600}
+.tip button{margin-left:auto;background:none;border:0;color:var(--info);cursor:pointer;display:flex;padding:3px;border-radius:4px}
+.tip button:hover{background:rgba(22,58,108,.1)}
+.tip.gone{display:none}
+
+/* ── Split ── */
+.split{flex:1;min-height:0;display:flex}
+
+/* ── 3 · Riel: filas como tarjetas ── */
+.rail{
+  width:430px;flex:none;display:flex;flex-direction:column;min-height:0;
+  border-right:1px solid var(--divider);background:var(--paper);position:relative;
+}
+.rail-top{flex:none;padding:12px 12px 8px;display:flex;flex-direction:column;gap:8px;position:relative}
+.srch{
+  display:flex;align-items:center;gap:9px;background:var(--surface);
+  border:1px solid var(--divider);border-radius:var(--r-m);height:38px;padding:0 12px;
+  font-size:13px;color:var(--muted);transition:border-color .15s,box-shadow .15s;
+}
+.srch:focus-within{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.srch input{flex:1;border:0;background:none;outline:none;font-family:inherit;font-size:13px;color:var(--ink)}
+/* ── 4 · Filtros livianos: chips + select fantasma ── */
+.filters{display:flex;align-items:center;gap:6px}
+.chips{display:flex;gap:4px}
+.chips button{
+  font-family:inherit;font-size:12px;font-weight:500;color:var(--muted);
+  background:transparent;border:1px solid transparent;border-radius:999px;
+  padding:5px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;
+  transition:all .15s;
+}
+.chips button:hover{background:var(--subtle);color:var(--ink)}
+.chips button[aria-pressed="true"]{background:var(--surface);border-color:var(--divider);color:var(--ink);box-shadow:var(--sh-1);font-weight:600}
+.gsel{
+  margin-left:auto;display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;color:var(--muted);background:transparent;border:0;
+  border-radius:var(--r-s);padding:5px 8px;cursor:pointer;font-family:inherit;
+}
+.gsel:hover{background:var(--subtle);color:var(--ink)}
+
+.rail-scroll{flex:1;min-height:0;overflow-y:auto;padding:2px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.rail-scroll::-webkit-scrollbar{width:8px}
+.rail-scroll::-webkit-scrollbar-thumb{background:var(--divider);border-radius:9px}
+
+.row{
+  display:flex;gap:11px;padding:10px 12px 10px 14px;border-radius:var(--r-m);
+  cursor:pointer;position:relative;background:transparent;text-align:left;
+  border:1px solid transparent;font-family:inherit;width:100%;
+  transition:background .15s,border-color .15s,box-shadow .15s,opacity .3s;
+}
+.row:hover{background:var(--rowhover)}
+.row[aria-selected="true"]{
+  background:var(--surface);border-color:var(--divider);box-shadow:var(--sh-2);
+}
+.row::before{
+  content:'';position:absolute;left:5px;top:12px;bottom:12px;width:3px;border-radius:3px;
+  background:var(--rule,transparent);transition:transform .2s;transform-origin:top;
+}
+.row.st-pending{--rule:var(--warn)} .row.st-published{--rule:var(--ok)}
+.row.st-scheduled{--rule:var(--info)} .row.st-raw{--rule:var(--warn)}
+.row.st-draft{--rule:var(--muted)}
+.row.done{opacity:.42}
+.row.done .rtitle{text-decoration:line-through;text-decoration-color:rgba(26,22,20,.3)}
+
+.rbody{min-width:0;flex:1}
+.rmeta{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.rtime{font-family:var(--f-m);font-size:11px;color:var(--muted)}
+.rtitle{
+  font-family:var(--f-d);font-size:15px;font-weight:600;line-height:1.3;
+  letter-spacing:-.005em;font-variation-settings:'opsz' 16,'SOFT' 20;color:var(--ink);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.row:not([aria-selected="true"]) .rtitle{color:var(--ink-soft)}
+.rsnip{
+  margin-top:3px;font-size:12.5px;line-height:1.45;color:var(--muted);
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+}
+.rraw{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--warn-ink);font-weight:500}
+
+/* Miniatura — el ancla de reconocimiento que faltaba */
+.rthumb{
+  width:46px;height:46px;border-radius:var(--r);flex:none;align-self:center;
+  box-shadow:inset 0 0 0 1px var(--hair);position:relative;overflow:hidden;
+}
+.rthumb.none{
+  background:var(--subtle);display:flex;align-items:center;justify-content:center;
+  color:var(--warn);border:1px dashed rgba(200,127,23,.4);box-shadow:none;
+}
+.chip{
+  font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 8px;border-radius:999px;white-space:nowrap;
+}
+.chip.scheduled{background:var(--info-soft);color:var(--info)}
+.chip.published{background:var(--ok-soft);color:var(--ok)}
+.chip.draft{background:var(--subtle);color:var(--muted)}
+
+.quick{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  display:flex;gap:5px;opacity:0;transition:opacity .15s;
+  background:var(--surface);border-radius:var(--r);padding:3px;box-shadow:var(--sh-2);
+}
+.row:hover .quick{opacity:1}
+.qb{
+  width:30px;height:30px;border-radius:var(--r-s);border:0;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;background:transparent;
+  transition:background .12s;
+}
+.qb.ok{color:var(--ok)} .qb.ok:hover{background:var(--ok-soft)}
+.qb.no{color:var(--brand)} .qb.no:hover{background:var(--brand-soft)}
+
+.rail-foot{
+  flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:9px 16px;border-top:1px solid var(--divider);font-size:12px;color:var(--muted);
+}
+.rail-foot b{font-family:var(--f-m);font-weight:500;color:var(--ink-soft)}
+
+/* ── Panel ── */
+.pane{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--canvas);position:relative}
+
+/* Barra de contexto con identidad */
+.ctx{
+  flex:none;display:flex;align-items:center;gap:11px;padding:10px 22px;
+  border-bottom:1px solid var(--divider);background:var(--paper);position:relative;
+}
+.av{
+  width:30px;height:30px;border-radius:999px;flex:none;
+  background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;
+}
+.ctx .who{font-size:13px;font-weight:600;line-height:1.2}
+.ctx .when{font-size:11.5px;color:var(--muted)}
+.ctx .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ghostlink{
+  display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+  border:1px solid var(--divider);border-radius:var(--r);padding:5px 11px;
+  text-decoration:none;cursor:pointer;background:var(--surface);transition:all .15s;font-family:inherit;
+}
+.ghostlink:hover{color:var(--ink);border-color:var(--muted)}
+
+/* ── 5 · Control segmentado ── */
+.segwrap{flex:none;display:flex;justify-content:center;padding:14px 22px 0;position:relative}
+.seg{
+  display:flex;gap:3px;background:rgba(26,22,20,.06);border-radius:var(--r-m);padding:3px;
+}
+.seg button{
+  font-family:inherit;font-size:12.5px;font-weight:500;color:var(--muted);
+  background:transparent;border:0;border-radius:var(--r);padding:7px 16px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;transition:all .15s;
+}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--sh-1);font-weight:600}
+.seg kbd{font-family:var(--f-m);font-size:9.5px;color:var(--muted);background:rgba(26,22,20,.06);border-radius:3px;padding:0 4px}
+.seg button[aria-selected="true"] kbd{background:var(--subtle)}
+
+.scroll{flex:1;min-height:0;overflow-y:auto;padding:18px 26px 26px}
+.scroll::-webkit-scrollbar{width:9px}
+.scroll::-webkit-scrollbar-thumb{background:rgba(26,22,20,.14);border-radius:9px}
+
+/* ── 6 · Preview WP como navegador ── */
+.browser{
+  max-width:780px;margin:0 auto;border-radius:var(--r-l);overflow:hidden;
+  background:var(--surface);box-shadow:var(--sh-3);border:1px solid var(--hair);
+  position:relative;
+}
+.bbar{
+  display:flex;align-items:center;gap:10px;padding:9px 14px;
+  background:var(--subtle);border-bottom:1px solid var(--divider);
+}
+.bdot{width:9px;height:9px;border-radius:999px;flex:none}
+.burl{
+  flex:1;background:var(--surface);border-radius:999px;padding:4px 14px;
+  font-family:var(--f-m);font-size:11px;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;
+  box-shadow:inset 0 0 0 1px var(--divider);
+}
+.burl b{color:var(--ink-soft);font-weight:500}
+.article{padding:30px 38px 34px}
+.heroimg{
+  display:flex;justify-content:center;background:var(--subtle);
+  border-radius:var(--r-m);padding:12px;margin-bottom:20px;
+}
+.cats{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.cat{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:var(--brand-soft);color:var(--brand-dark);padding:3px 10px;border-radius:999px}
+.article h1{
+  font-family:var(--f-d);font-size:28px;font-weight:600;line-height:1.12;
+  letter-spacing:-.02em;font-variation-settings:'opsz' 32,'SOFT' 24;margin-bottom:12px;
+}
+.dek{
+  font-family:var(--f-d);font-size:16px;font-style:italic;line-height:1.5;color:var(--ink-soft);
+  border-left:3px solid var(--brand);padding-left:14px;margin-bottom:18px;
+}
+.prose p{font-size:14.5px;line-height:1.68;color:var(--ink-soft);margin-bottom:12px}
+.prose p:first-of-type::first-letter{
+  font-family:var(--f-d);font-size:44px;font-weight:600;color:var(--brand);
+  float:left;line-height:.8;margin:5px 8px 0 0;
+}
+.wtags{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--divider)}
+.wtags .lbl{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.wtag{font-size:12px;color:var(--ink-soft);background:var(--subtle);padding:3px 10px;border-radius:999px}
+
+/* Tarjeta social compartida */
+.social{aspect-ratio:1;width:100%;max-width:300px;border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;background:#111}
+.social .ph{flex:1;position:relative}
+.social .ph::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 38%,rgba(0,0,0,.85))}
+.social .cap{position:absolute;left:14px;right:14px;bottom:12px;z-index:2}
+.social .kick{display:inline-block;background:#B91C1C;color:#fff;font-size:7.5px;font-weight:700;letter-spacing:.15em;padding:3px 7px;text-transform:uppercase;margin-bottom:6px}
+.social .head{font-family:Georgia,serif;color:#fff;font-size:15px;font-weight:700;line-height:1.15;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+.social .foot{height:44px;background:#111;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-top:3px solid #B91C1C}
+.social .foot .n{font-family:Arial Black,Arial,sans-serif;font-size:12px}
+.social .foot .n i{font-style:normal;color:#E5484D}
+.social .foot .m{text-align:right;font-size:8px;line-height:1.35;opacity:.85}
+
+/* FB / IG cards */
+.post{max-width:440px;margin:0 auto;border-radius:var(--r-l);overflow:hidden;background:var(--surface);box-shadow:var(--sh-3);border:1px solid var(--hair)}
+.post-h{display:flex;align-items:center;gap:11px;padding:13px 15px}
+.post-h .nm{font-size:13.5px;font-weight:600}
+.post-h .mt{font-size:11.5px;color:var(--muted)}
+.post-txt{padding:0 15px 12px;font-size:14px;line-height:1.55;color:var(--ink-soft);white-space:pre-line}
+.post-img{display:flex;justify-content:center;background:var(--subtle);border-top:1px solid var(--divider);border-bottom:1px solid var(--divider);padding:0}
+.post-img .social{max-width:100%;border-radius:0}
+.post-act{display:flex;padding:6px 12px}
+.post-act span{flex:1;text-align:center;font-size:12px;color:var(--muted);padding:7px 0;display:flex;align-items:center;justify-content:center;gap:6px}
+.igtags{color:var(--info);display:block;margin-top:6px;font-size:12.5px;line-height:1.5}
+.post-txt .who{font-weight:600;color:var(--ink)}
+
+/* ── 8 · Estado sin generar ── */
+.ngwrap{max-width:780px;margin:0 auto;position:relative}
+.banner{
+  display:flex;gap:12px;align-items:flex-start;background:var(--warn-soft);
+  border:1px solid rgba(200,127,23,.3);border-radius:var(--r-l);padding:16px 18px;margin-bottom:16px;
+}
+.banner .t{font-size:14px;font-weight:600;color:var(--ink)}
+.banner .d{font-size:13px;line-height:1.55;color:var(--ink-soft);margin-top:3px}
+.banner .actions{margin-top:11px;display:flex;gap:8px}
+.rawcard{
+  background:var(--surface);border-radius:var(--r-l);box-shadow:var(--sh-2);
+  border:1px solid var(--hair);padding:22px 24px;
+}
+.rawcard h3{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.rawcard pre{white-space:pre-wrap;font-family:var(--f-u);font-size:14px;line-height:1.65;color:var(--ink-soft)}
+
+/* ── 7 · Barra de acciones con jerarquía ── */
+.act{
+  flex:none;display:flex;align-items:center;gap:10px;padding:12px 22px;
+  border-top:1px solid var(--divider);background:rgba(245,242,236,.96);
+  backdrop-filter:blur(8px);position:relative;
+}
+.btn{
+  font-family:inherit;font-size:13px;font-weight:500;border-radius:var(--r-m);
+  padding:0 16px;height:40px;display:inline-flex;align-items:center;gap:8px;
+  border:1px solid transparent;cursor:pointer;white-space:nowrap;
+  transition:all .15s;
+}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-cta{background:var(--brand);color:#fff;box-shadow:0 2px 8px -2px rgba(185,28,28,.4);font-weight:600;padding:0 20px}
+.btn-cta:hover:not(:disabled){background:var(--brand-dark)}
+.btn-sec{background:var(--surface);border-color:var(--divider);color:var(--ink)}
+.btn-sec:hover{border-color:var(--muted)}
+.btn-gh{background:transparent;color:var(--muted)}
+.btn-gh:hover{background:var(--subtle);color:var(--ink)}
+.kbd{font-family:var(--f-m);font-size:9.5px;font-weight:600;background:rgba(255,255,255,.22);border-radius:4px;padding:1px 5px}
+.btn-sec .kbd,.btn-gh .kbd{background:var(--subtle);color:var(--muted)}
+
+/* popover de atajos */
+.helpb{
+  width:34px;height:34px;border-radius:999px;border:1px solid var(--divider);
+  background:var(--surface);color:var(--muted);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;font-family:var(--f-m);
+  font-size:13px;font-weight:600;transition:all .15s;
+}
+.helpb:hover{color:var(--ink);border-color:var(--muted)}
+.pop{
+  position:absolute;bottom:56px;right:18px;width:250px;background:var(--surface);
+  border-radius:var(--r-l);box-shadow:var(--sh-3);border:1px solid var(--hair);
+  padding:14px 16px;z-index:60;
+}
+.pop[hidden]{display:none}
+.pop h4{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.pop .r{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12.5px;color:var(--ink-soft)}
+.pop kbd{font-family:var(--f-m);font-size:10px;font-weight:600;background:var(--subtle);border-radius:4px;padding:2px 7px;color:var(--ink-soft)}
+
+/* programador inline */
+.schedbar{
+  flex:none;display:flex;align-items:center;gap:9px;padding:10px 22px;
+  border-top:1px solid var(--divider);background:var(--info-soft);
+  animation:slidein .2s ease-out;
+}
+@keyframes slidein{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+.schedbar input{
+  font-family:var(--f-m);font-size:13px;border:1px solid var(--divider);
+  border-radius:var(--r);padding:8px 12px;background:var(--surface);outline:none;color:var(--ink);
+}
+.schedbar input:focus{border-color:var(--info)}
+
+/* estado vacío */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center}
+.empty .ring{width:60px;height:60px;border-radius:999px;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+.empty h2{font-family:var(--f-d);font-size:24px;font-weight:600;font-variation-settings:var(--vf);margin-bottom:8px}
+.empty p{font-size:14px;color:var(--muted);max-width:44ch}
+
+/* toasts */
+.toasts{position:fixed;bottom:22px;right:22px;z-index:400;display:flex;flex-direction:column;gap:10px}
+.toast{
+  background:#15130F;color:#F2F0EC;border-radius:var(--r-l);padding:13px 15px;
+  display:flex;align-items:center;gap:13px;box-shadow:var(--sh-3);font-size:13px;
+  animation:pop .25s cubic-bezier(.16,1,.3,1);min-width:320px;
+}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.toast.out{animation:away .2s forwards}
+@keyframes away{to{opacity:0;transform:translateX(14px)}}
+.toast .ring{width:23px;height:23px;flex:none}
+.toast .ring circle.p{stroke-dasharray:88;animation:cnt 8s linear forwards}
+@keyframes cnt{from{stroke-dashoffset:0}to{stroke-dashoffset:88}}
+.toast .msg{flex:1;min-width:0}
+.toast .msg b{display:block;font-weight:400;color:rgba(242,240,236,.6);font-size:11.5px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toast button{
+  font-family:inherit;font-size:12px;font-weight:600;color:#F2F0EC;
+  background:rgba(255,255,255,.15);border:0;border-radius:6px;padding:6px 12px;cursor:pointer;flex:none;
+}
+.toast button:hover{background:rgba(255,255,255,.25)}
+
+/* ══════════ ANOTACIONES ══════════ */
+.pin{
+  display:none;position:absolute;z-index:80;width:22px;height:22px;border-radius:999px;
+  background:var(--warn);color:#fff;font-family:var(--f-m);font-size:11px;font-weight:700;
+  align-items:center;justify-content:center;box-shadow:0 0 0 3px rgba(200,127,23,.25),var(--sh-2);
+  font-style:normal;cursor:default;
+}
+body.annot .pin{display:flex}
+.annot-panel{
+  position:fixed;top:64px;right:14px;bottom:14px;width:320px;z-index:90;
+  background:var(--surface);border-radius:var(--r-l);box-shadow:var(--sh-3);
+  border:1px solid var(--hair);padding:18px;overflow-y:auto;display:none;
+}
+body.annot .annot-panel{display:block}
+.annot-panel h3{font-family:var(--f-d);font-size:18px;font-weight:600;font-variation-settings:var(--vf);margin-bottom:4px}
+.annot-panel .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.ai{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--divider);font-size:12.5px;line-height:1.5;color:var(--ink-soft)}
+.ai:last-child{border:0}
+.ai .num{
+  width:20px;height:20px;border-radius:999px;background:var(--warn);color:#fff;flex:none;
+  font-family:var(--f-m);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;
+}
+.ai b{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<div class="lab">
+  <b class="tag">PROPUESTA V2</b>
+  <span>Prensa refinada — misma línea gráfica, jerarquía nueva</span>
+  <span class="sep"></span>
+  <button id="btnAnnot" aria-pressed="false">
+    <svg class="ic-s" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    Ver qué cambió
+  </button>
+  <span class="sep"></span>
+  <span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(242,240,236,.45);font-weight:600">Fondo</span>
+  <span id="bgSeg" style="display:flex;gap:4px">
+    <button data-bg="blanco" aria-pressed="true">Blanco</button>
+    <button data-bg="gris" aria-pressed="false">Gris frío</button>
+    <button data-bg="papel" aria-pressed="false">Papel (antes)</button>
+  </span>
+  <span class="hint">Compará lado a lado con localhost:3000 · <kbd>j</kbd><kbd>k</kbd> <kbd>A</kbd> <kbd>R</kbd> <kbd>1 2 3</kbd></span>
+</div>
+
+<div class="app">
+
+  <!-- 1 · Header en una banda -->
+  <header class="hdr">
+    <i class="pin" data-n="1" style="left:230px;top:17px">1</i>
+    <span class="mark disp">Pagina<em>Uno</em><span class="tld">.do</span></span>
+
+    <!-- 2 · Tabs píldora -->
+    <nav class="tabsnav" style="position:relative">
+      <i class="pin" data-n="2" style="left:110px;top:-8px">2</i>
+      <button aria-current="true">Pendientes <span class="n" id="navN">7</span></button>
+      <button>En construcción <span class="n dim">1</span></button>
+      <button>Programadas</button>
+      <button>Al aire</button>
+      <button>Descartadas</button>
+    </nav>
+
+    <span class="clock"><small id="clockDate">lunes 3 de agosto</small><span id="clockTime">20:30</span></span>
+  </header>
+
+  <!-- 9 · Tip descartable -->
+  <div class="tip" id="tip">
+    <i class="pin" data-n="9" style="left:420px;top:4px">9</i>
+    <svg class="ic-s" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+    Movete con <kbd>j</kbd> <kbd>k</kbd>, aprobá con <kbd>A</kbd>, cambiá el preview con <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> — todo sin tocar el mouse.
+    <button aria-label="Cerrar" onclick="document.getElementById('tip').classList.add('gone')">
+      <svg class="ic-s" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="split">
+
+    <!-- ═══ RIEL ═══ -->
+    <aside class="rail">
+      <div class="rail-top">
+        <div class="srch">
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input placeholder="Buscar en títulos, textos, remitentes…" />
+        </div>
+        <!-- 4 · Filtros livianos -->
+        <div class="filters" style="position:relative">
+          <i class="pin" data-n="4" style="right:-4px;top:-4px">4</i>
+          <div class="chips" id="srcChips">
+            <button aria-pressed="true">Todas</button>
+            <button aria-pressed="false">
+              <svg class="ic-s" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>
+              WhatsApp</button>
+            <button aria-pressed="false">
+              <svg class="ic-s" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+              Email</button>
+          </div>
+          <button class="gsel">En edición · activas
+            <svg class="ic-s" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 3 · Filas como tarjetas -->
+      <div class="rail-scroll" id="rail" style="position:relative">
+        <i class="pin" data-n="3" style="right:2px;top:10px">3</i>
+      </div>
+
+      <div class="rail-foot">
+        <span id="footLeft">7 en cola</span>
+        <b id="footDone">0 cerradas ahora</b>
+      </div>
+    </aside>
+
+    <!-- ═══ PANEL ═══ -->
+    <div class="pane" id="pane"></div>
+
+  </div>
+</div>
+
+<!-- Panel de anotaciones -->
+<aside class="annot-panel">
+  <h3>Qué cambió y por qué</h3>
+  <p class="sub">Cada número apunta al lugar exacto en la pantalla.</p>
+  <div class="ai"><span class="num">1</span><span><b>Header en una banda.</b> Marca, navegación y reloj conviven en 56px. Antes eran dos bandas (~105px) — el contenido gana medio centímetro de pantalla siempre.</span></div>
+  <div class="ai"><span class="num">2</span><span><b>Tabs tipo píldora.</b> La sección activa se ve como botón lleno, no como subrayado tímido. El contador vive dentro de la píldora.</span></div>
+  <div class="ai"><span class="num">3</span><span><b>Filas como tarjetas.</b> Miniatura de 46px para reconocer de un vistazo, snippet del mensaje, y la seleccionada flota con sombra. Antes eran filas planas idénticas.</span></div>
+  <div class="ai"><span class="num">4</span><span><b>Filtros livianos.</b> La fuente son tres chips (un click, se ve cuál está activa). El estado es un select fantasma que no pelea por atención.</span></div>
+  <div class="ai"><span class="num">5</span><span><b>Control segmentado.</b> WordPress / Facebook / Instagram como segmento con el atajo visible en cada botón. Más afordancia que el subrayado.</span></div>
+  <div class="ai"><span class="num">6</span><span><b>El preview es un navegador.</b> Marco con URL real de paginauno.do — deja claro que esto es "lo que se va a publicar", no un formulario más.</span></div>
+  <div class="ai"><span class="num">7</span><span><b>Jerarquía en las acciones.</b> "Al aire" es EL botón (rojo, sombra propia). La banda permanente de atajos desaparece — ahora vive en el botón <b>?</b>.</span></div>
+  <div class="ai"><span class="num">8</span><span><b>Sin generar, con salida.</b> El estado ámbar ahora propone una acción: reintentar la generación, en vez de solo informar el problema.</span></div>
+  <div class="ai"><span class="num">9</span><span><b>Tip de bienvenida descartable.</b> Enseña los atajos una vez y se va para siempre. Reemplaza a la banda fija de abajo.</span></div>
+  <div class="ai"><span class="num">·</span><span><b>Global:</b> radios 3-5px → 8-12px, sombras más generosas, píldoras en chips y tags. Es lo que hace que se lea "producto" y no "panel admin".</span></div>
+</aside>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* ══════════ DATOS — titulares reales de la base ══════════ */
+const G = [
+  ['#C8BFAE','#8E8271'],['#A8B5BE','#5D6975'],['#C4A98E','#8A6D4F'],
+  ['#9EB5A5','#5F7D6A'],['#B5A8BE','#75688A'],['#BEB0A0','#7d6E5C'],
+];
+const PUBS = [
+  { t:'15:23', src:'wa', from:'18092598816', st:'pending', g:0,
+    title:'Visitantes elogian organización de los Juegos Panamericanos en Santo Domingo',
+    dek:'Delegaciones y turistas destacaron la logística, la seguridad y el ambiente festivo del evento deportivo.',
+    cats:['Actualidad','Deportes','Santo Domingo'], tags:['Juegos Panamericanos','Santo Domingo','Turismo Deportivo'],
+    slug:'visitantes-elogian-organizacion-juegos-panamericanos',
+    body:['Santo Domingo. – Visitantes nacionales y extranjeros elogiaron la organización de los Juegos Panamericanos que se celebran en la capital dominicana, destacando la logística, la seguridad y el ambiente festivo que se vive en las distintas sedes.','Las delegaciones consultadas resaltaron la puntualidad de las competencias y la calidad de las instalaciones deportivas dispuestas para el evento.','"La organización ha sido impecable, desde el transporte hasta la atención en las villas", indicó uno de los entrenadores presentes.'],
+    fb:'Visitantes y delegaciones elogian la organización de los Juegos Panamericanos en Santo Domingo.\n\nDestacan la logística, la seguridad y el ambiente festivo del evento.\n\nLee la nota completa en PaginaUno.Do',
+    ig:'La organización de los Juegos Panamericanos se lleva los aplausos: delegaciones y visitantes destacan logística, seguridad y ambiente festivo en Santo Domingo.',
+    hash:['paginaunodo','juegospanamericanos','santodomingo','deportes','republicadominicana'] },
+  { t:'15:22', src:'wa', from:'18092598816', st:'raw', raw:'Los comerciantes del mercado nuevo reportan buenas ventas durante el fin de semana largo. Varios consultados dicen que la mercancía se movió más que el mes pasado…' },
+  { t:'15:21', src:'wa', from:'18092598816', st:'raw', raw:'Foto del operativo de limpieza en la ribera del Ozama. Brigadas municipales retiraron más de 40 toneladas de desechos sólidos…' },
+  { t:'11:42', src:'wa', from:'18092598816', st:'pending', g:1,
+    title:'Consejo Nacional de la Magistratura evaluará este lunes a magistrados',
+    dek:'El órgano constitucional inicia el proceso de evaluación de desempeño de los jueces de las altas cortes.',
+    cats:['Actualidad','Nacionales','Justicia'], tags:['CNM','Poder Judicial','Suprema Corte'],
+    slug:'cnm-evaluara-magistrados-altas-cortes',
+    body:['Santo Domingo. – El Consejo Nacional de la Magistratura iniciará este lunes el proceso de evaluación de desempeño de los magistrados de las altas cortes, conforme al calendario establecido por el órgano constitucional.','La sesión estará encabezada por el presidente de la República y contará con la participación de los representantes del Poder Legislativo y del Poder Judicial que integran el consejo.'],
+    fb:'El Consejo Nacional de la Magistratura evaluará este lunes a los magistrados de las altas cortes.\n\nTodos los detalles en PaginaUno.Do',
+    ig:'Arranca este lunes la evaluación de desempeño de los magistrados de las altas cortes, con representación de los tres poderes del Estado.',
+    hash:['paginaunodo','justicia','cnm','poderjudicial'] },
+  { t:'11:37', src:'ml', from:'redaccion@paginauno.do', st:'pending', g:2,
+    title:'MAP audita nóminas públicas para determinar número real de empleados',
+    dek:'El Ministerio desarrolla una auditoría presencial para verificar la situación laboral de los empleados públicos.',
+    cats:['Actualidad','Nacionales','Política'], tags:['MAP','Sigmund Freund','Nómina Pública'],
+    slug:'map-audita-nominas-publicas',
+    body:['Santo Domingo. – El Estado, uno de los tres principales empleadores del país, no sabe con certeza cuántos trabajadores tiene en su nómina debido a la falta de interconexión entre las instituciones públicas.','"No son 780,000, son menos. ¿Qué tantos? Tampoco se lo puedo decir", indicó el ministro Sigmund Freund durante un encuentro con editores de medios.'],
+    fb:'El Estado no sabe con certeza cuántos empleados tiene. El MAP desarrolla una auditoría presencial para determinar la cifra real.\n\nLee más en PaginaUno.Do',
+    ig:'El MAP audita en terreno las nóminas del Estado: la falta de interconexión impide conocer la cifra exacta de empleados públicos.',
+    hash:['paginaunodo','nacionales','map','empleopublico'] },
+  { t:'11:20', src:'wa', from:'18092598816', st:'scheduled', when:'mié 14:00', g:3,
+    title:'España reporta entrada masiva de migrantes en Ceuta',
+    dek:'Las autoridades activaron el protocolo de emergencia tras el arribo de miles de personas.',
+    cats:['Actualidad','Internacionales','España'], tags:['España','Ceuta','Migración'],
+    slug:'espana-entrada-masiva-migrantes-ceuta',
+    body:['Ceuta. – Las autoridades españolas reportaron la entrada masiva de migrantes a la ciudad autónoma de Ceuta y activaron el protocolo de emergencia previsto para estos casos.'],
+    fb:'España activa el protocolo de emergencia en Ceuta.\n\nMás en PaginaUno.Do',
+    ig:'Las autoridades españolas activan el protocolo de emergencia en Ceuta tras el arribo masivo de migrantes.',
+    hash:['paginaunodo','internacionales','espana','ceuta'] },
+  { t:'11:01', src:'ml', from:'redaccion@paginauno.do', st:'pending', g:4,
+    title:'Estado compromete 45.4 millones de pesos en incentivos por cinco años',
+    dek:'El compromiso se ejecutará de forma escalonada hasta el año 2031.',
+    cats:['Actualidad','Economía'], tags:['Incentivos','Presupuesto'],
+    slug:'estado-compromete-45-millones-incentivos',
+    body:['Santo Domingo. – El Estado dominicano comprometió 45.4 millones de pesos en incentivos que serán desembolsados de forma escalonada durante los próximos cinco años.'],
+    fb:'El Estado compromete 45.4 millones de pesos en incentivos por cinco años.\n\nDetalles en PaginaUno.Do',
+    ig:'45.4 millones de pesos en incentivos comprometidos, con desembolso escalonado hasta 2031.',
+    hash:['paginaunodo','economia','presupuesto'] },
+  { t:'10:52', src:'wa', from:'18092598816', st:'pending', g:5,
+    title:'Estudio revela que presión tributaria efectiva supera el promedio regional',
+    dek:'La investigación analiza el peso real de la carga impositiva sobre el sector formal.',
+    cats:['Actualidad','Economía'], tags:['Impuestos','DGII'],
+    slug:'presion-tributaria-supera-promedio-regional',
+    body:['Santo Domingo. – Un estudio presentado esta semana revela que la presión tributaria efectiva sobre el sector formal de la economía dominicana supera el promedio de la región.'],
+    fb:'Un estudio revela que la presión tributaria efectiva supera el promedio regional.\n\nLee la nota en PaginaUno.Do',
+    ig:'La presión tributaria efectiva sobre el sector formal supera el promedio regional, según un estudio presentado esta semana.',
+    hash:['paginaunodo','economia','impuestos'] },
+  { t:'08:30', src:'ml', from:'redaccion@paginauno.do', st:'published', g:1,
+    title:'Banco Central mantiene tasa de política monetaria en 5.25%',
+    dek:'La decisión se sustenta en el comportamiento de la inflación dentro del rango meta.',
+    cats:['Actualidad','Economía'], tags:['Banco Central','Inflación'],
+    slug:'banco-central-mantiene-tasa-525',
+    body:['Santo Domingo. – El Banco Central informó que mantendrá su tasa de política monetaria en 5.25% anual tras la reunión de julio.'],
+    fb:'El Banco Central mantiene la tasa de política monetaria en 5.25%.',
+    ig:'El Banco Central sostiene su tasa de referencia en 5.25%.',
+    hash:['paginaunodo','economia','bancocentral'] },
+];
+const SRC = {
+  wa:'<svg class="ic-s" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>',
+  ml:'<svg class="ic-s" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>'
+};
+
+/* ══════════ ESTADO ══════════ */
+let sel = 0, tab = 'wp';
+const state = PUBS.map(p => ({...p}));
+const rail = document.getElementById('rail');
+const pane = document.getElementById('pane');
+const toasts = document.getElementById('toasts');
+
+const grad = i => `linear-gradient(135deg,${G[i%G.length][0]},${G[i%G.length][1]})`;
+const isOpen = p => p.st === 'pending' || p.st === 'raw' || p.st === 'scheduled';
+
+/* ══════════ RIEL ══════════ */
+function drawRail(){
+  const pin = rail.querySelector('.pin');
+  rail.innerHTML = '';
+  if (pin) rail.appendChild(pin);
+  state.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.className = `row st-${p.st}${p.done ? ' done' : ''}`;
+    b.setAttribute('aria-selected', String(i === sel));
+    const badge =
+      p.st === 'scheduled' ? `<span class="chip scheduled">${p.when}</span>` :
+      p.st === 'published' ? `<span class="chip published">Al aire</span>` : '';
+    const thumb = p.st === 'raw'
+      ? `<span class="rthumb none"><svg class="ic" viewBox="0 0 24 24"><path d="m21.7 18.4-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21.4h16a2 2 0 0 0 1.7-3z"/><path d="M12 9v4M12 17h.01"/></svg></span>`
+      : `<span class="rthumb" style="background:${grad(p.g ?? 0)}"></span>`;
+    const title = p.st === 'raw'
+      ? `<span class="rraw"><svg class="ic-s" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Sin contenido generado</span>`
+      : `<span class="rtitle disp">${p.title}</span>`;
+    const snip = p.st === 'raw' ? p.raw : p.dek;
+    b.innerHTML = `
+      <span class="rbody">
+        <span class="rmeta">
+          <span class="rtime">${p.t}</span>${SRC[p.src]}${badge}
+        </span>
+        ${title}
+        ${snip ? `<span class="rsnip">${snip}</span>` : ''}
+      </span>
+      ${thumb}
+      ${isOpen(p) && !p.done ? `
+      <span class="quick">
+        ${p.st === 'pending' ? `<button class="qb ok" data-a="ok" title="Al aire (A)">
+          <svg class="ic" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg></button>` : ''}
+        <button class="qb no" data-a="no" title="Descartar (R)">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </span>` : ''}
+    `;
+    b.addEventListener('click', e => {
+      const qb = e.target.closest('.qb');
+      if (qb) { e.stopPropagation(); act(i, qb.dataset.a === 'ok' ? 'approve' : 'reject'); return; }
+      sel = i; render();
+    });
+    rail.appendChild(b);
+  });
+  const open = state.filter(p => isOpen(p) && !p.done).length;
+  const done = state.filter(p => p.done).length;
+  document.getElementById('footLeft').textContent = open ? `${open} en cola` : 'cola vacía';
+  document.getElementById('footDone').textContent = `${done} cerradas ahora`;
+  document.getElementById('navN').textContent = state.filter(p => p.st === 'pending' && !p.done).length + state.filter(p=>p.st==='raw'&&!p.done).length;
+}
+
+/* ══════════ PREVIEWS ══════════ */
+const socialCard = (p, max) => `
+  <div class="social" ${max ? `style="max-width:${max}"` : ''}>
+    <div class="ph" style="background:${grad(p.g ?? 0)}">
+      <div class="cap"><span class="kick">${p.cats?.[0] ?? 'Actualidad'}</span>
+      <div class="head">${p.title}</div></div>
+    </div>
+    <div class="foot"><span class="n">PAGINA<i>UNO</i></span>
+    <span class="m">3 ago 2026<br>@paginauno.do</span></div>
+  </div>`;
+
+const previewWP = p => `
+  <div class="browser" style="position:relative">
+    <i class="pin" data-n="6" style="left:-11px;top:-11px">6</i>
+    <div class="bbar">
+      <span class="bdot" style="background:#E0685E"></span>
+      <span class="bdot" style="background:#E5B84B"></span>
+      <span class="bdot" style="background:#6FBF95"></span>
+      <span class="burl"><b>paginauno.do</b>/${p.slug}</span>
+    </div>
+    <div class="article">
+      <div class="heroimg">${socialCard(p, '260px')}</div>
+      <div class="cats">${p.cats.map(c => `<span class="cat">${c}</span>`).join('')}</div>
+      <h1>${p.title}</h1>
+      <p class="dek">${p.dek}</p>
+      <div class="prose">${p.body.map(x => `<p>${x}</p>`).join('')}</div>
+      <div class="wtags"><span class="lbl">Etiquetas</span>${p.tags.map(t => `<span class="wtag">${t}</span>`).join('')}</div>
+    </div>
+  </div>`;
+
+const previewFB = p => `
+  <div class="post">
+    <div class="post-h"><span class="av">P</span>
+      <span><span class="nm">PaginaUno.Do</span><br><span class="mt">Ahora · Público</span></span>
+    </div>
+    <div class="post-txt">${p.fb}</div>
+    <div class="post-img">${socialCard(p, '100%')}</div>
+    <div class="post-act">
+      <span><svg class="ic-s" viewBox="0 0 24 24"><path d="M7 10v12M15 5.9 14 10h5.8a2 2 0 0 1 2 2.3l-1.4 9A2 2 0 0 1 18.4 23H7V10l4.5-9a3 3 0 0 1 3.5 4z"/></svg>Me gusta</span>
+      <span><svg class="ic-s" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.8-.9L3 20.5l1.5-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>Comentar</span>
+      <span><svg class="ic-s" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>Compartir</span>
+    </div>
+  </div>`;
+
+const previewIG = p => `
+  <div class="post" style="max-width:380px">
+    <div class="post-h"><span class="av" style="width:28px;height:28px;font-size:11px">P</span>
+      <span class="nm">paginauno.do</span>
+    </div>
+    <div class="post-img">${socialCard(p, '100%')}</div>
+    <div class="post-txt" style="padding-top:11px">
+      <span class="who">paginauno.do</span> ${p.ig}
+      <span class="igtags">${p.hash.map(h => '#' + h).join(' ')}</span>
+    </div>
+  </div>`;
+
+/* ══════════ PANEL ══════════ */
+function rel(t){ return `recibido a las ${t}`; }
+
+function render(){
+  drawRail();
+  const open = state.filter(p => isOpen(p) && !p.done);
+  const p = state[sel];
+  if (!p || (open.length === 0 && p.done)) { pane.innerHTML = emptyHtml(); return; }
+
+  const generated = p.st !== 'raw';
+  const settled = p.st === 'published' || p.done;
+  const initial = (p.from || '?')[0].toUpperCase();
+
+  const content = !generated ? notGenHtml(p)
+    : tab === 'wp' ? previewWP(p)
+    : tab === 'fb' ? previewFB(p)
+    : previewIG(p);
+
+  pane.innerHTML = `
+    <div class="ctx">
+      <span class="av">${initial}</span>
+      <span><span class="who">${p.from}</span><br><span class="when">${rel(p.t)} · ${p.src === 'wa' ? 'WhatsApp' : 'Email'}</span></span>
+      <span class="right">
+        ${p.st === 'scheduled' ? `<span class="chip scheduled">Programada · ${p.when}</span>` : ''}
+        ${p.st === 'published' ? `<span class="chip published">Al aire</span>` : ''}
+        <button class="ghostlink">Ficha completa
+          <svg class="ic-s" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        </button>
+      </span>
+    </div>
+
+    ${generated ? `
+    <div class="segwrap">
+      <i class="pin" data-n="5" style="right:calc(50% - 160px);top:8px">5</i>
+      <div class="seg" role="tablist">
+        <button role="tab" aria-selected="${tab==='wp'}" data-t="wp">
+          <svg class="ic-s" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          WordPress <kbd>1</kbd></button>
+        <button role="tab" aria-selected="${tab==='fb'}" data-t="fb">
+          <svg class="ic-s" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+          Facebook <kbd>2</kbd></button>
+        <button role="tab" aria-selected="${tab==='ig'}" data-t="ig">
+          <svg class="ic-s" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/></svg>
+          Instagram <kbd>3</kbd></button>
+      </div>
+    </div>` : ''}
+
+    <div class="scroll">${content}</div>
+
+    <div class="act">
+      <i class="pin" data-n="7" style="left:190px;top:-11px">7</i>
+      ${settled
+        ? `<span style="font-size:13px;color:var(--muted)">Esta publicación está <b style="color:var(--ink)">al aire</b> y no admite más acciones.</span>`
+        : `
+        <button class="btn btn-cta" data-a="approve" ${!generated || p.st !== 'pending' ? 'disabled' : ''}
+          title="${generated ? 'Atajo: A' : 'No se puede publicar sin contenido generado'}">
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M4.9 19.1a10 10 0 0 1 0-14.2M19.1 4.9a10 10 0 0 1 0 14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4"/></svg>
+          Al aire ahora <span class="kbd">A</span>
+        </button>
+        <button class="btn btn-sec" data-a="sched" ${p.st !== 'pending' ? 'disabled' : ''}>
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Programar <span class="kbd">S</span>
+        </button>
+        <button class="btn btn-sec">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+          Editar <span class="kbd">E</span>
+        </button>
+        <button class="btn btn-gh" style="margin-left:auto" data-a="reject">
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Descartar <span class="kbd">R</span>
+        </button>`}
+      <button class="helpb" id="helpBtn" title="Atajos de teclado">?</button>
+      <div class="pop" id="pop" hidden>
+        <h4>Atajos de teclado</h4>
+        <div class="r"><span>Moverse en la cola</span><span><kbd>j</kbd> <kbd>k</kbd></span></div>
+        <div class="r"><span>Cambiar preview</span><span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></div>
+        <div class="r"><span>Al aire ahora</span><kbd>A</kbd></div>
+        <div class="r"><span>Programar</span><kbd>S</kbd></div>
+        <div class="r"><span>Editar copy</span><kbd>E</kbd></div>
+        <div class="r"><span>Descartar</span><kbd>R</kbd></div>
+      </div>
+    </div>
+  `;
+
+  pane.querySelectorAll('[data-t]').forEach(b =>
+    b.addEventListener('click', () => { tab = b.dataset.t; render(); }));
+  pane.querySelectorAll('[data-a]').forEach(b =>
+    b.addEventListener('click', () => {
+      if (b.dataset.a === 'approve') act(sel, 'approve');
+      else if (b.dataset.a === 'reject') act(sel, 'reject');
+      else if (b.dataset.a === 'sched') openSched();
+      else if (b.dataset.a === 'retry') retryGen(b);
+    }));
+  const hb = document.getElementById('helpBtn'), pop = document.getElementById('pop');
+  if (hb) hb.addEventListener('click', () => { pop.hidden = !pop.hidden; });
+}
+
+function notGenHtml(p){
+  return `
+  <div class="ngwrap">
+    <i class="pin" data-n="8" style="left:-11px;top:-11px">8</i>
+    <div class="banner">
+      <svg class="ic" viewBox="0 0 24 24" style="color:var(--warn);margin-top:2px"><path d="m21.7 18.4-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21.4h16a2 2 0 0 0 1.7-3z"/><path d="M12 9v4M12 17h.01"/></svg>
+      <div>
+        <div class="t">Esta nota todavía no fue generada</div>
+        <div class="d">Llegó al sistema pero la IA no produjo titular, cuerpo ni versiones para redes.
+        Publicarla ahora subiría una nota vacía.</div>
+        <div class="actions">
+          <button class="btn btn-sec" style="height:34px;font-size:12.5px" data-a="retry">
+            <svg class="ic-s" viewBox="0 0 24 24"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            Reintentar generación
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="rawcard">
+      <h3>Lo que sí llegó</h3>
+      <pre>${p.raw}</pre>
+    </div>
+  </div>`;
+}
+
+function emptyHtml(){
+  return `<div class="empty">
+    <div class="ring"><svg viewBox="0 0 24 24" style="width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="m20 6-11 11-5-5"/></svg></div>
+    <h2 class="disp">Cola cerrada</h2>
+    <p>No quedan notas esperando decisión. Cuando llegue una nueva aparece sola en el riel.</p>
+    <button class="btn btn-sec" style="margin-top:18px" onclick="location.reload()">Reiniciar el prototipo</button>
+  </div>`;
+}
+
+/* ══════════ ACCIONES ══════════ */
+function nextOpen(from){
+  for (let i = from + 1; i < state.length; i++) if (isOpen(state[i]) && !state[i].done) return i;
+  for (let i = 0; i < from; i++) if (isOpen(state[i]) && !state[i].done) return i;
+  return from;
+}
+
+function act(i, action){
+  const p = state[i];
+  if (!isOpen(p) || p.done) return;
+  if (action === 'approve' && p.st !== 'pending') return;
+  p.done = true;
+  const undo = () => { p.done = false; sel = i; render(); };
+  toastUndo(action === 'approve' ? 'Al aire' : 'Descartada', p.title ?? 'Nota sin titular', undo);
+  sel = nextOpen(i);
+  render();
+}
+
+function retryGen(btn){
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="ic-s" viewBox="0 0 24 24" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg> Encolando…';
+  setTimeout(() => {
+    toastInfo('Regeneración encolada', 'El workflow 03 va a reprocesar esta nota (demo).');
+    btn.innerHTML = 'Encolada ✓';
+  }, 1100);
+}
+
+function openSched(){
+  if (document.querySelector('.schedbar')) return;
+  const bar = document.createElement('div');
+  bar.className = 'schedbar';
+  bar.innerHTML = `
+    <svg class="ic" viewBox="0 0 24 24" style="color:var(--info)"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    <input type="datetime-local" value="2026-08-05T14:00" />
+    <button class="btn btn-sec" style="height:34px">Confirmar</button>
+    <button class="btn btn-gh" style="height:34px">Cancelar</button>`;
+  const actbar = pane.querySelector('.act');
+  pane.insertBefore(bar, actbar);
+  const [ok, no] = bar.querySelectorAll('.btn');
+  no.onclick = () => bar.remove();
+  ok.onclick = () => {
+    const p = state[sel];
+    p.st = 'scheduled'; p.when = 'mié 14:00';
+    bar.remove();
+    toastInfo('Programada', `${p.title} — miércoles 14:00`);
+    sel = nextOpen(sel); render();
+  };
+}
+
+/* ══════════ TOASTS ══════════ */
+function toastUndo(label, title, undo){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `
+    <svg class="ring" viewBox="0 0 36 36">
+      <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(242,240,236,.2)" stroke-width="3"/>
+      <circle class="p" cx="18" cy="18" r="14" fill="none" stroke="#6FBF95" stroke-width="3" stroke-linecap="round" transform="rotate(-90 18 18)"/>
+    </svg>
+    <span class="msg">${label}<b>${title}</b></span>
+    <button>Deshacer</button>`;
+  toasts.appendChild(el);
+  const kill = () => { el.classList.add('out'); setTimeout(() => el.remove(), 200); };
+  const t = setTimeout(kill, 8000);
+  el.querySelector('button').onclick = () => { clearTimeout(t); undo(); kill(); };
+}
+function toastInfo(label, title){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span class="msg">${label}<b>${title}</b></span>`;
+  toasts.appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 200); }, 3500);
+}
+
+/* ══════════ TECLADO ══════════ */
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'j' || e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, state.length - 1); render(); }
+  else if (k === 'k' || e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); render(); }
+  else if (k === 'a') act(sel, 'approve');
+  else if (k === 'r') act(sel, 'reject');
+  else if (k === 's') { const p = state[sel]; if (p.st === 'pending' && !p.done) openSched(); }
+  else if (['1','2','3'].includes(e.key)) { tab = ['wp','fb','ig'][+e.key - 1]; render(); }
+});
+
+/* filtros chips (visual) */
+document.getElementById('srcChips').querySelectorAll('button').forEach(b =>
+  b.addEventListener('click', () => {
+    document.getElementById('srcChips').querySelectorAll('button')
+      .forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  }));
+
+/* anotaciones */
+document.getElementById('btnAnnot').addEventListener('click', function(){
+  const on = document.body.classList.toggle('annot');
+  this.setAttribute('aria-pressed', String(on));
+});
+
+/* selector de fondo */
+document.getElementById('bgSeg').querySelectorAll('button').forEach(b =>
+  b.addEventListener('click', () => {
+    document.documentElement.dataset.bg = b.dataset.bg;
+    document.getElementById('bgSeg').querySelectorAll('button')
+      .forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  }));
+
+/* reloj */
+function tick(){
+  const n = new Date();
+  document.getElementById('clockTime').textContent =
+    n.toLocaleTimeString('es-DO', { hour:'2-digit', minute:'2-digit', hour12:false });
+  document.getElementById('clockDate').textContent =
+    n.toLocaleDateString('es-DO', { weekday:'long', day:'numeric', month:'long' });
+}
+tick(); setInterval(tick, 30_000);
+
+const style = document.createElement('style');
+style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(style);
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mesa de edición — propuestas de rediseño</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKENS — copiados 1:1 de backoffice/tailwind.config.ts
+   ============================================================ */
+:root {
+  --paper:   #F5F2EC;
+  --surface: #FFFFFF;
+  --ink:     #1A1614;
+  --muted:   #77716B;
+  --divider: #E5E0D8;
+  --subtle:  #F0EBE1;
+
+  --brand:        #B91C1C;
+  --brand-dark:   #8F1414;
+  --brand-soft:   #F3E1E1;
+  --approve:      #1F5940;
+  --approve-soft: #DDECE4;
+  --pending:      #C87F17;
+  --pending-soft: #F5E9D2;
+  --schedule:     #163A6C;
+  --schedule-soft:#DFE5F0;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --shadow-card:  0 1px 0 rgba(26,22,20,.04);
+  --shadow-hover: 0 4px 16px -4px rgba(26,22,20,.08), 0 2px 4px -2px rgba(26,22,20,.04);
+  --shadow-elev:  0 8px 24px -6px rgba(26,22,20,.10), 0 2px 8px -2px rgba(26,22,20,.05);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-sans);
+  background: #E8E3DA;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.55;
+}
+
+/* Escala tipográfica editorial */
+.t-micro    { font-size: 11px; line-height: 1.3;  letter-spacing: .08em; }
+.t-label    { font-size: 12px; line-height: 1.4;  letter-spacing: .06em; }
+.t-meta     { font-size: 13px; line-height: 1.5; }
+.t-body     { font-size: 15px; line-height: 1.55; }
+.t-lead     { font-size: 17px; line-height: 1.5; }
+.t-headline { font-size: 24px; line-height: 1.15; letter-spacing: -.015em; }
+.t-title    { font-size: 32px; line-height: 1.1;  letter-spacing: -.02em; }
+.t-display  { font-size: 44px; line-height: 1.05; letter-spacing: -.025em; }
+
+.display { font-family: var(--font-display); font-variation-settings: 'opsz' 32, 'SOFT' 30, 'WONK' 0; }
+.mono    { font-family: var(--font-mono); }
+
+/* ============================================================
+   SHELL DE LA PROPUESTA (chrome del documento, no del producto)
+   ============================================================ */
+.doc-header {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 28px 40px 0;
+  position: sticky; top: 0; z-index: 50;
+  box-shadow: var(--shadow-elev);
+}
+.doc-header h1 {
+  font-family: var(--font-display);
+  font-size: 26px; font-weight: 600; letter-spacing: -.02em;
+  font-variation-settings: 'opsz' 32, 'SOFT' 30;
+}
+.doc-header p { color: rgba(245,242,236,.62); font-size: 13px; margin-top: 4px; }
+
+.switcher { display: flex; gap: 2px; margin-top: 22px; flex-wrap: wrap; }
+.switcher button {
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  background: transparent; border: 0; border-bottom: 2px solid transparent;
+  color: rgba(245,242,236,.55); padding: 10px 16px; cursor: pointer;
+  transition: color .18s, border-color .18s;
+}
+.switcher button:hover { color: rgba(245,242,236,.9); }
+.switcher button[aria-selected="true"] { color: var(--paper); border-bottom-color: var(--brand); }
+
+.stage { padding: 36px 40px 80px; max-width: 1400px; margin: 0 auto; }
+.panel[hidden] { display: none; }
+
+.brief {
+  background: var(--paper); border: 1px solid var(--divider);
+  border-radius: 10px; padding: 22px 26px; margin-bottom: 26px;
+  display: grid; gap: 14px; grid-template-columns: 1fr;
+}
+.brief h2 {
+  font-family: var(--font-display); font-size: 22px; font-weight: 600;
+  letter-spacing: -.015em; font-variation-settings: 'opsz' 32, 'SOFT' 20;
+}
+.brief .kicker {
+  font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; margin-bottom: 5px;
+}
+.brief p { font-size: 14px; color: rgba(26,22,20,.78); max-width: 76ch; }
+.tradeoff { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+@media (max-width: 800px) { .tradeoff { grid-template-columns: 1fr; } }
+.tradeoff div {
+  border-left: 2px solid; padding: 8px 0 8px 12px; font-size: 13px;
+}
+.tradeoff .win  { border-color: var(--approve); }
+.tradeoff .cost { border-color: var(--pending); }
+.tradeoff b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px; }
+.tradeoff .win b  { color: var(--approve); }
+.tradeoff .cost b { color: var(--pending); }
+
+.verdict {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 3px; width: fit-content;
+}
+.verdict.rec  { background: var(--approve-soft); color: var(--approve); }
+.verdict.no   { background: var(--brand-soft);   color: var(--brand-dark); }
+.verdict.base { background: var(--subtle);       color: var(--muted); }
+
+/* Marco de navegador para que la densidad se sienta real */
+.frame {
+  border-radius: 10px; overflow: hidden;
+  box-shadow: var(--shadow-elev); border: 1px solid rgba(26,22,20,.14);
+  background: var(--paper);
+}
+.frame-bar {
+  background: #DED8CD; padding: 9px 14px;
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid rgba(26,22,20,.10);
+}
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.frame-url {
+  flex: 1; text-align: center; font-family: var(--font-mono);
+  font-size: 11px; color: rgba(26,22,20,.42);
+}
+
+/* ============================================================
+   CHROME DEL PRODUCTO (header + nav del backoffice)
+   ============================================================ */
+.app { background: var(--paper); }
+.app-header { border-bottom: 1px solid var(--divider); background: var(--paper); }
+.app-header-inner {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 32px; padding: 18px 24px;
+}
+.logo { display: flex; align-items: baseline; gap: 12px; }
+.logo .wordmark {
+  font-family: var(--font-display); font-size: 26px; font-weight: 600;
+  line-height: 1; font-variation-settings: 'opsz' 32, 'SOFT' 30;
+}
+.logo .wordmark em { font-style: normal; color: var(--brand); }
+.logo .wordmark .tld { font-family: var(--font-mono); font-size: 15px; font-weight: 400; color: var(--muted); }
+.logo .role { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.app-date { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+.app-nav { border-top: 1px solid var(--divider); }
+.app-nav-inner { display: flex; gap: 2px; padding: 0 24px; }
+.app-nav a {
+  font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none;
+  padding: 11px 15px; border-bottom: 2px solid transparent;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.app-nav a.on { color: var(--ink); border-bottom-color: var(--ink); }
+.count-pill {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  background: var(--pending); color: #fff;
+  border-radius: 20px; padding: 1px 6px; line-height: 1.6;
+}
+
+.filters { display: grid; grid-template-columns: 1fr 220px 180px; gap: 10px; }
+.field {
+  background: var(--surface); border: 1px solid var(--divider); border-radius: 5px;
+  height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 11px;
+  font-size: 13px; color: var(--muted);
+}
+.field.grow { flex: 1; }
+.icon { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.75; flex: none; }
+.icon-sm { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.75; flex: none; }
+
+/* Barra de estado (la señal más escaneable) */
+.rule { width: 3px; border-radius: 0 2px 2px 0; flex: none; align-self: stretch; }
+.rule.pending   { background: var(--pending); }
+.rule.approved  { background: var(--approve); }
+.rule.scheduled { background: var(--schedule); }
+.rule.failed    { background: var(--brand); }
+.rule.draft     { background: var(--muted); }
+
+.chip {
+  font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 3px; white-space: nowrap;
+}
+.chip.pending   { background: var(--pending-soft);  color: #8A5710; }
+.chip.approved  { background: var(--approve-soft);  color: var(--approve); }
+.chip.scheduled { background: var(--schedule-soft); color: var(--schedule); }
+.chip.draft     { background: var(--subtle);        color: var(--muted); }
+
+.src {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+
+/* ============================================================
+   0 · ESTADO ACTUAL
+   ============================================================ */
+.now-body { padding: 26px 24px; }
+.now-h {
+  font-family: var(--font-display); font-size: 40px; font-weight: 600;
+  letter-spacing: -.025em; line-height: 1.05; font-variation-settings: 'opsz' 32, 'SOFT' 30;
+}
+.now-kicker { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+.card {
+  display: flex; align-items: stretch; gap: 18px;
+  background: var(--surface); border: 1px solid var(--divider); border-radius: 10px;
+  padding: 18px; box-shadow: var(--shadow-card); margin-bottom: 8px; position: relative;
+}
+.card .stamp { width: 58px; flex: none; }
+.card .stamp .n { font-family: var(--font-mono); font-size: 11px; color: rgba(26,22,20,.30); font-weight: 500; }
+.card .stamp .t { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.card .mid { min-width: 0; flex: 1; }
+.card .mid .row { display: flex; align-items: center; gap: 11px; margin-bottom: 7px; }
+.card h3 {
+  font-family: var(--font-display); font-size: 24px; font-weight: 600;
+  line-height: 1.15; letter-spacing: -.015em; font-variation-settings: 'opsz' 32, 'SOFT' 20;
+}
+.card .dek {
+  font-size: 13px; color: var(--muted); margin-top: 6px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.thumb {
+  width: 90px; height: 90px; border-radius: 5px; flex: none;
+  box-shadow: inset 0 0 0 1px var(--divider); object-fit: cover;
+}
+.thumb.ph {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--subtle); color: var(--muted);
+  font-size: 10px; letter-spacing: .07em; text-transform: uppercase;
+}
+.ghost-hover {
+  position: absolute; left: 0; top: 16px; bottom: 16px; width: 3px;
+  border-radius: 0 2px 2px 0; opacity: .18;
+}
+
+/* ============================================================
+   A · MESA DE TRABAJO (split-pane)
+   ============================================================ */
+.split { display: grid; grid-template-columns: 340px 1fr; min-height: 560px; }
+.rail { border-right: 1px solid var(--divider); background: var(--paper); display: flex; flex-direction: column; }
+.rail-head {
+  padding: 12px 14px; border-bottom: 1px solid var(--divider);
+  display: flex; align-items: center; gap: 9px;
+}
+.rail-list { overflow: hidden; }
+
+.rrow {
+  display: flex; gap: 0; border-bottom: 1px solid var(--divider);
+  cursor: pointer; background: transparent; position: relative;
+}
+.rrow .rbody { padding: 9px 13px 10px; min-width: 0; flex: 1; }
+.rrow .rmeta { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.rrow .rtime { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.rrow .rtitle {
+  font-family: var(--font-display); font-size: 14px; font-weight: 600; line-height: 1.28;
+  letter-spacing: -.005em; font-variation-settings: 'opsz' 14, 'SOFT' 20;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.rrow.sel { background: var(--surface); }
+.rrow.sel::after {
+  content: ''; position: absolute; right: -1px; top: 0; bottom: 0; width: 1px; background: var(--surface);
+}
+.rrow.sel .rtitle { color: var(--ink); }
+.rrow:not(.sel) .rtitle { color: rgba(26,22,20,.72); }
+.rrow.done { opacity: .42; }
+.rrow.done .rtitle { text-decoration: line-through; text-decoration-color: rgba(26,22,20,.28); }
+
+.pane { background: var(--surface); display: flex; flex-direction: column; min-width: 0; }
+.pane-tabs {
+  display: flex; gap: 2px; padding: 0 22px; border-bottom: 1px solid var(--divider); flex: none;
+}
+.pane-tabs span {
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  padding: 11px 13px; border-bottom: 2px solid transparent;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.pane-tabs span.on { color: var(--ink); border-bottom-color: var(--brand); }
+.pane-scroll { padding: 22px; flex: 1; min-height: 0; }
+.hero {
+  height: 132px; border-radius: 5px; margin-bottom: 16px;
+  background: linear-gradient(115deg, #C8BFAE, #A69684 60%, #8E8271);
+  box-shadow: inset 0 0 0 1px rgba(26,22,20,.09);
+  display: flex; align-items: flex-end; padding: 12px;
+}
+.hero span {
+  font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: rgba(255,255,255,.85); background: rgba(26,22,20,.42);
+  padding: 3px 8px; border-radius: 3px; backdrop-filter: blur(4px);
+}
+.cats { display: flex; gap: 6px; margin-bottom: 11px; flex-wrap: wrap; }
+.cat {
+  font-size: 10px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase;
+  background: var(--brand-soft); color: var(--brand-dark); padding: 3px 8px; border-radius: 3px;
+}
+.pane h2 {
+  font-family: var(--font-display); font-size: 30px; font-weight: 600;
+  line-height: 1.1; letter-spacing: -.02em; font-variation-settings: 'opsz' 32, 'SOFT' 24;
+  margin-bottom: 12px;
+}
+.dek-quote {
+  font-family: var(--font-display); font-size: 16px; font-style: italic;
+  line-height: 1.5; color: rgba(26,22,20,.78);
+  border-left: 2px solid var(--brand); padding-left: 14px; margin-bottom: 16px;
+}
+.prose p { font-size: 14px; line-height: 1.62; color: rgba(26,22,20,.88); margin-bottom: 11px; }
+.prose p:first-of-type::first-letter {
+  font-family: var(--font-display); font-size: 42px; font-weight: 600; color: var(--brand);
+  float: left; line-height: .82; margin: 4px 8px 0 0;
+}
+.actionbar {
+  border-top: 1px solid var(--divider); background: rgba(245,242,236,.96);
+  padding: 13px 22px; display: flex; align-items: center; gap: 10px; flex: none;
+  backdrop-filter: blur(8px);
+}
+.btn {
+  font-family: inherit; font-size: 13px; font-weight: 500; border-radius: 5px;
+  padding: 0 15px; height: 38px; display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+}
+.btn-critical { background: var(--brand); color: #fff; box-shadow: var(--shadow-card); }
+.btn-outline  { background: transparent; border-color: var(--divider); color: var(--ink); }
+.btn-ghost    { background: transparent; color: var(--muted); }
+.kbd {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  background: rgba(255,255,255,.22); border-radius: 3px; padding: 1px 5px; margin-left: 2px;
+}
+.btn-outline .kbd, .btn-ghost .kbd { background: rgba(26,22,20,.07); }
+
+.hints {
+  display: flex; gap: 16px; padding: 9px 22px; border-top: 1px solid var(--divider);
+  font-size: 11px; color: var(--muted); flex: none; flex-wrap: wrap;
+  background: var(--paper);
+}
+.hints b { font-family: var(--font-mono); font-weight: 500; color: rgba(26,22,20,.62); }
+
+/* ============================================================
+   B · LEDGER
+   ============================================================ */
+.ledger { background: var(--surface); border: 1px solid var(--divider); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow-card); }
+.lrow {
+  display: flex; align-items: center; gap: 13px;
+  border-bottom: 1px solid var(--divider); position: relative; min-height: 52px; padding-right: 13px;
+}
+.lrow:last-child { border-bottom: 0; }
+.lrow .ln { font-family: var(--font-mono); font-size: 11px; color: rgba(26,22,20,.28); width: 20px; text-align: right; flex: none; }
+.lrow .lt { font-family: var(--font-mono); font-size: 12px; color: var(--muted); width: 40px; flex: none; }
+.lrow .ltitle {
+  font-family: var(--font-display); font-size: 15px; font-weight: 600; line-height: 1.3;
+  letter-spacing: -.008em; font-variation-settings: 'opsz' 18, 'SOFT' 20;
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lrow .lthumb {
+  width: 34px; height: 34px; border-radius: 4px; flex: none;
+  background: linear-gradient(135deg, #C8BFAE, #A69684);
+  box-shadow: inset 0 0 0 1px rgba(26,22,20,.10);
+}
+.lrow.hot { background: rgba(240,235,225,.62); }
+.quick { display: flex; gap: 5px; flex: none; }
+.qbtn {
+  width: 30px; height: 30px; border-radius: 5px; border: 1px solid var(--divider);
+  background: var(--surface); display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.qbtn.ok  { color: var(--approve); border-color: rgba(31,89,64,.32); }
+.qbtn.sch { color: var(--schedule); border-color: rgba(22,58,108,.30); }
+.qbtn.no  { color: var(--brand);   border-color: rgba(185,28,28,.30); }
+.legend {
+  display: flex; gap: 18px; flex-wrap: wrap; align-items: center;
+  margin-top: 14px; font-size: 11px; color: var(--muted);
+}
+.legend i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+/* ============================================================
+   C · KANBAN
+   ============================================================ */
+.board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.col { background: rgba(240,235,225,.55); border: 1px solid var(--divider); border-radius: 10px; padding: 11px; min-height: 400px; }
+.col-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; padding: 0 2px; }
+.col-h span { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.col-h b { font-family: var(--font-mono); font-size: 12px; color: rgba(26,22,20,.42); font-weight: 500; }
+.kcard {
+  background: var(--surface); border: 1px solid var(--divider); border-radius: 7px;
+  padding: 10px; margin-bottom: 8px; box-shadow: var(--shadow-card); position: relative; display: flex; gap: 0;
+}
+.kcard .kbody { padding-left: 9px; min-width: 0; }
+.kcard .kimg { height: 58px; border-radius: 4px; margin-bottom: 8px; background: linear-gradient(135deg, #C8BFAE, #A69684); }
+.kcard h4 {
+  font-family: var(--font-display); font-size: 13px; font-weight: 600; line-height: 1.3;
+  font-variation-settings: 'opsz' 14, 'SOFT' 20;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.kcard .kwhen { font-family: var(--font-mono); font-size: 10px; color: var(--schedule); margin-top: 6px; }
+.warn {
+  margin-top: 20px; border: 1px solid rgba(185,28,28,.28); background: var(--brand-soft);
+  border-radius: 7px; padding: 14px 16px; font-size: 13px; color: var(--brand-dark); max-width: 76ch;
+}
+.warn b { display: block; margin-bottom: 4px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+
+/* ============================================================
+   REFINAMIENTOS
+   ============================================================ */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+@media (max-width: 980px) { .grid2 { grid-template-columns: 1fr; } }
+.demo {
+  background: var(--paper); border: 1px solid var(--divider); border-radius: 10px; padding: 20px;
+}
+.demo > .kicker {
+  font-size: 11px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; margin-bottom: 12px;
+}
+
+/* Dark */
+.dark {
+  --paper: #15120F; --surface: #1E1A16; --ink: #EDE7DC; --muted: #948C81;
+  --divider: #2E2822; --subtle: #24201B;
+  --brand-soft: #3A1A1A; --approve-soft: #16301F; --pending-soft: #33260F; --schedule-soft: #16233A;
+  background: var(--paper); color: var(--ink);
+}
+.dark .chip.pending  { color: #E0A64B; }
+.dark .chip.approved { color: #6FBF95; }
+.dark .lrow .ln      { color: rgba(237,231,220,.28); }
+.dark .lrow .ltitle  { color: var(--ink); }
+
+/* Toast deshacer */
+.toast {
+  background: var(--ink); color: var(--paper); border-radius: 7px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 13px; box-shadow: var(--shadow-elev); font-size: 13px;
+}
+.toast .ring { width: 22px; height: 22px; flex: none; }
+.toast button {
+  font-family: inherit; font-size: 12px; font-weight: 600; color: var(--paper);
+  background: rgba(245,242,236,.14); border: 0; border-radius: 4px; padding: 5px 11px; cursor: pointer;
+}
+
+/* Command palette */
+.palette {
+  background: var(--surface); border: 1px solid var(--divider); border-radius: 10px;
+  box-shadow: var(--shadow-elev); overflow: hidden;
+}
+.palette .pin {
+  display: flex; align-items: center; gap: 10px; padding: 13px 15px;
+  border-bottom: 1px solid var(--divider); color: var(--muted); font-size: 14px;
+}
+.palette .pitem {
+  display: flex; align-items: center; gap: 10px; padding: 9px 15px; font-size: 13px;
+}
+.palette .pitem.on { background: var(--subtle); }
+.palette .pitem .pk { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.palette .psec {
+  padding: 8px 15px 4px; font-size: 10px; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted); font-weight: 600;
+}
+
+/* Skeleton con forma */
+.sk { display: flex; gap: 13px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--divider); }
+.sk i { display: block; border-radius: 4px; background: linear-gradient(90deg, var(--subtle) 25%, #E7E1D6 50%, var(--subtle) 75%); background-size: 200% 100%; animation: sh 1.4s infinite; }
+@keyframes sh { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+.foot {
+  margin-top: 34px; padding-top: 22px; border-top: 1px solid rgba(26,22,20,.14);
+  font-size: 13px; color: rgba(26,22,20,.62); max-width: 76ch;
+}
+.foot strong { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <h1>Mesa de edición — propuestas de rediseño</h1>
+  <p>Mockups con los tokens reales del backoffice y titulares reales de la base. Ninguna línea del código de producción fue tocada.</p>
+  <nav class="switcher" role="tablist">
+    <button role="tab" aria-selected="true"  data-p="now">Hoy</button>
+    <button role="tab" aria-selected="false" data-p="a">A · Mesa de trabajo</button>
+    <button role="tab" aria-selected="false" data-p="b">B · Ledger</button>
+    <button role="tab" aria-selected="false" data-p="c">C · Kanban</button>
+    <button role="tab" aria-selected="false" data-p="ref">Refinamientos</button>
+  </nav>
+</header>
+
+<div class="stage">
+
+<!-- ============================================================
+     HOY
+     ============================================================ -->
+<section class="panel" id="p-now">
+  <div class="brief">
+    <div>
+      <div class="kicker">Punto de partida</div>
+      <h2>Cómo se ve hoy</h2>
+    </div>
+    <p>Tarjeta de ~144&nbsp;px por nota. En un portátil de 900&nbsp;px de alto, con el header y los filtros, caben <strong>4 notas</strong>. El estado solo aparece como barra de color al pasar el mouse — en reposo se pierde. Cada decisión exige abrir la nota en una página nueva y volver.</p>
+    <span class="verdict base">Referencia para comparar</span>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <span class="dot" style="background:#E0685E"></span>
+      <span class="dot" style="background:#E5B84B"></span>
+      <span class="dot" style="background:#6FBF95"></span>
+      <span class="frame-url">localhost:3000</span>
+    </div>
+    <div class="app">
+      <div class="app-header">
+        <div class="app-header-inner">
+          <div class="logo">
+            <span class="wordmark">Pagina<em>Uno</em><span class="tld">.do</span></span>
+            <span class="role">Mesa de edición</span>
+          </div>
+          <span class="app-date">viernes 31 de julio, 2026</span>
+        </div>
+        <nav class="app-nav"><div class="app-nav-inner">
+          <a class="on" href="#">Pendientes</a>
+          <a href="#">En construcción</a>
+          <a href="#">Programadas</a>
+          <a href="#">Al aire</a>
+          <a href="#">Descartadas</a>
+        </div></nav>
+      </div>
+
+      <div class="now-body">
+        <div class="now-kicker">Cierre editorial</div>
+        <div class="now-h" style="margin-bottom:22px">Pendientes de cierre</div>
+
+        <div class="filters" style="margin-bottom:20px">
+          <div class="field">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            Buscar en títulos, textos, remitentes…
+          </div>
+          <div class="field" style="justify-content:space-between">En edición · activas
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+          <div class="field" style="justify-content:space-between">Todas las fuentes
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+
+        <div class="t-meta" style="color:var(--muted);margin-bottom:12px">8 publicaciones</div>
+
+        <article class="card">
+          <span class="ghost-hover" style="background:var(--pending)"></span>
+          <div class="stamp"><div class="n">01</div><div class="t">11:42</div></div>
+          <div class="mid">
+            <div class="row">
+              <span class="chip pending">Pendiente</span>
+              <span class="src">
+                <svg class="icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>
+                18092598816</span>
+            </div>
+            <h3>Consejo Nacional de la Magistratura evaluará este lunes a magistrados</h3>
+            <p class="dek">El órgano constitucional inicia el proceso de evaluación de desempeño de los jueces de las altas cortes, conforme al calendario establecido.</p>
+          </div>
+          <div class="thumb ph">Sin foto</div>
+        </article>
+
+        <article class="card">
+          <span class="ghost-hover" style="background:var(--pending)"></span>
+          <div class="stamp"><div class="n">02</div><div class="t">11:37</div></div>
+          <div class="mid">
+            <div class="row">
+              <span class="chip pending">Pendiente</span>
+              <span class="src">
+                <svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+                redaccion@paginauno.do</span>
+            </div>
+            <h3>MAP audita nóminas públicas para determinar número real de empleados</h3>
+            <p class="dek">El Ministerio de Administración Pública desarrolla una auditoría presencial en terreno para verificar la situación laboral de los empleados públicos.</p>
+          </div>
+          <div class="thumb" style="background:linear-gradient(135deg,#C8BFAE,#A69684)"></div>
+        </article>
+
+        <article class="card">
+          <span class="ghost-hover" style="background:var(--pending)"></span>
+          <div class="stamp"><div class="n">03</div><div class="t">11:20</div></div>
+          <div class="mid">
+            <div class="row">
+              <span class="chip pending">Pendiente</span>
+              <span class="src">
+                <svg class="icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>
+                18092598816</span>
+            </div>
+            <h3>FIFA defiende su plan de inversión y niega que pretenda vender activos</h3>
+            <p class="dek">La federación internacional respondió a las versiones difundidas esta semana sobre una supuesta reestructuración de su portafolio.</p>
+          </div>
+          <div class="thumb" style="background:linear-gradient(135deg,#B9AE9C,#97896F)"></div>
+        </article>
+
+        <div style="text-align:center;padding:14px 0 2px;font-size:12px;color:var(--muted)">
+          ↓ las otras 5 quedan bajo el pliegue
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     A · MESA DE TRABAJO
+     ============================================================ -->
+<section class="panel" id="p-a" hidden>
+  <div class="brief">
+    <div>
+      <div class="kicker">Dirección A</div>
+      <h2>Mesa de trabajo — panel dividido</h2>
+    </div>
+    <p>Riel denso a la izquierda, preview en vivo a la derecha. No navegas: seleccionas y el panel carga. Al aprobar, la lista avanza sola a la siguiente nota y la anterior queda tachada. Es el modelo de un cliente de correo aplicado al triage editorial.</p>
+    <div class="tradeoff">
+      <div class="win"><b>Gana</b>Elimina el ida y vuelta. 11 notas visibles en vez de 4. Con teclado, aprobar son dos pulsaciones: <b style="display:inline">A</b> y listo.</div>
+      <div class="cost"><b>Cuesta</b>Refactor mediano — hay que extraer el detalle a un panel que respire en ~60% del ancho. Editar copy seguiría abriendo página completa.</div>
+    </div>
+    <span class="verdict rec">◆ Mi recomendación</span>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <span class="dot" style="background:#E0685E"></span>
+      <span class="dot" style="background:#E5B84B"></span>
+      <span class="dot" style="background:#6FBF95"></span>
+      <span class="frame-url">localhost:3000</span>
+    </div>
+    <div class="app">
+      <div class="app-header">
+        <div class="app-header-inner">
+          <div class="logo">
+            <span class="wordmark">Pagina<em>Uno</em><span class="tld">.do</span></span>
+            <span class="role">Mesa de edición</span>
+          </div>
+          <span class="app-date">viernes 31 de julio, 2026</span>
+        </div>
+        <nav class="app-nav"><div class="app-nav-inner">
+          <a class="on" href="#">Pendientes <span class="count-pill">8</span></a>
+          <a href="#">En construcción <span class="count-pill" style="background:var(--muted)">2</span></a>
+          <a href="#">Programadas</a>
+          <a href="#">Al aire</a>
+          <a href="#">Descartadas</a>
+        </div></nav>
+      </div>
+
+      <div class="split">
+        <!-- Riel -->
+        <aside class="rail">
+          <div class="rail-head">
+            <div class="field grow" style="height:32px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              Buscar
+            </div>
+            <button class="qbtn" title="Filtros">
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+            </button>
+          </div>
+          <div class="rail-list">
+            <div class="rrow done">
+              <span class="rule approved"></span>
+              <div class="rbody">
+                <div class="rmeta"><span class="rtime">11:52</span><span class="chip approved">Al aire</span></div>
+                <div class="rtitle">Banco Central mantiene tasa de política monetaria en 5.25%</div>
+              </div>
+            </div>
+            <div class="rrow sel">
+              <span class="rule pending"></span>
+              <div class="rbody">
+                <div class="rmeta"><span class="rtime">11:42</span><span class="src">
+                  <svg class="icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>wa</span></div>
+                <div class="rtitle">Consejo Nacional de la Magistratura evaluará este lunes a magistrados</div>
+              </div>
+            </div>
+            <div class="rrow">
+              <span class="rule pending"></span>
+              <div class="rbody">
+                <div class="rmeta"><span class="rtime">11:37</span><span class="src">
+                  <svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>ml</span></div>
+                <div class="rtitle">MAP audita nóminas públicas para determinar número real de empleados</div>
+              </div>
+            </div>
+            <div class="rrow">
+              <span class="rule pending"></span>
+              <div class="rbody">
+                <div class="rmeta"><span class="rtime">11:20</span><span class="src">
+                  <svg class="icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>wa</span></div>
+                <div class="rtitle">FIFA defiende su plan de inversión y niega que pretenda vender activos</div>
+              </div>
+            </div>
+            <div class="rrow">
+              <span class="rule pending"></span>
+              <div class="rbody">
+                <div class="rmeta"><span class="rtime">11:01</span><span class="src">
+                  <svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>ml</span></div>
+                <div class="rtitle">Estado compromete 45.4 millones de pesos en incentivos</div>
+              </div>
+            </div>
+            <div class="rrow">
+              <span class="rule pending"></span>
+              <div class="rbody">
+                <div class="rmeta"><span class="rtime">10:52</span><span class="src">
+                  <svg class="icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>wa</span></div>
+                <div class="rtitle">Estudio revela que presión tributaria efectiva supera el promedio</div>
+              </div>
+            </div>
+            <div class="rrow">
+              <span class="rule scheduled"></span>
+              <div class="rbody">
+                <div class="rmeta"><span class="rtime">10:48</span><span class="chip scheduled">mié 14:00</span></div>
+                <div class="rtitle">España reporta entrada masiva de migrantes en Ceuta</div>
+              </div>
+            </div>
+            <div class="rrow">
+              <span class="rule pending"></span>
+              <div class="rbody">
+                <div class="rmeta"><span class="rtime">09:48</span><span class="src">
+                  <svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>ml</span></div>
+                <div class="rtitle">INFOTEP ofrecerá 500 nuevas becas para cursos técnicos</div>
+              </div>
+            </div>
+            <div class="rrow">
+              <span class="rule draft"></span>
+              <div class="rbody">
+                <div class="rmeta"><span class="rtime">09:12</span><span class="chip draft">Construcción</span></div>
+                <div class="rtitle">Juegos Centroamericanos y del Caribe inician con ambiente festivo</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Panel -->
+        <div class="pane">
+          <div class="pane-tabs">
+            <span class="on">
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+              WordPress</span>
+            <span>
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+              Facebook</span>
+            <span>
+              <svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".5" fill="currentColor"/></svg>
+              Instagram</span>
+          </div>
+          <div class="pane-scroll">
+            <div class="hero"><span>1080 × 1080 · template article</span></div>
+            <div class="cats"><span class="cat">Actualidad</span><span class="cat">Nacionales</span><span class="cat">Justicia</span></div>
+            <h2>Consejo Nacional de la Magistratura evaluará este lunes a magistrados</h2>
+            <p class="dek-quote">El órgano constitucional inicia el proceso de evaluación de desempeño de los jueces de las altas cortes, conforme al calendario establecido.</p>
+            <div class="prose">
+              <p>Santo Domingo. – El Consejo Nacional de la Magistratura iniciará este lunes el proceso de evaluación de desempeño de los magistrados de las altas cortes, conforme al calendario establecido por el órgano constitucional.</p>
+              <p>La sesión estará encabezada por el presidente de la República y contará con la participación de los representantes del Poder Legislativo y del Poder Judicial que integran el consejo.</p>
+            </div>
+          </div>
+          <div class="actionbar">
+            <button class="btn btn-critical">
+              <svg class="icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M4.9 19.1a10 10 0 0 1 0-14.2M19.1 4.9a10 10 0 0 1 0 14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4"/></svg>
+              Al aire ahora <span class="kbd">A</span>
+            </button>
+            <button class="btn btn-outline">
+              <svg class="icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              Programar <span class="kbd">S</span>
+            </button>
+            <button class="btn btn-outline">
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              Editar <span class="kbd">E</span>
+            </button>
+            <button class="btn btn-ghost" style="margin-left:auto">
+              <svg class="icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+              Descartar <span class="kbd">R</span>
+            </button>
+          </div>
+          <div class="hints">
+            <span><b>j</b> <b>k</b> mover</span>
+            <span><b>A</b> aprobar</span>
+            <span><b>S</b> programar</span>
+            <span><b>R</b> descartar</span>
+            <span><b>E</b> editar</span>
+            <span><b>⌘K</b> comandos</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     B · LEDGER
+     ============================================================ -->
+<section class="panel" id="p-b" hidden>
+  <div class="brief">
+    <div>
+      <div class="kicker">Dirección B</div>
+      <h2>Ledger editorial — densidad</h2>
+    </div>
+    <p>Misma arquitectura de hoy, pero la lista pasa a teletipo: una línea por nota, estado siempre visible como regla de color a la izquierda, y acciones rápidas al pasar el mouse para no tener que abrir la nota cuando ya sabes qué hacer.</p>
+    <div class="tradeoff">
+      <div class="win"><b>Gana</b>Cambio quirúrgico, riesgo bajo, 2.5× más densidad. Las acciones inline ahorran viajes. Se puede hacer en una sesión.</div>
+      <div class="cost"><b>Cuesta</b>Para leer la nota sigues navegando. La miniatura se reduce a 34&nbsp;px — sirve para reconocer, no para juzgar la foto.</div>
+    </div>
+    <span class="verdict rec">◆ Buen primer paso hacia A</span>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <span class="dot" style="background:#E0685E"></span>
+      <span class="dot" style="background:#E5B84B"></span>
+      <span class="dot" style="background:#6FBF95"></span>
+      <span class="frame-url">localhost:3000</span>
+    </div>
+    <div class="app">
+      <div class="app-header">
+        <div class="app-header-inner">
+          <div class="logo">
+            <span class="wordmark">Pagina<em>Uno</em><span class="tld">.do</span></span>
+            <span class="role">Mesa de edición</span>
+          </div>
+          <span class="app-date">viernes 31 de julio, 2026</span>
+        </div>
+        <nav class="app-nav"><div class="app-nav-inner">
+          <a class="on" href="#">Pendientes <span class="count-pill">8</span></a>
+          <a href="#">En construcción <span class="count-pill" style="background:var(--muted)">2</span></a>
+          <a href="#">Programadas</a>
+          <a href="#">Al aire</a>
+          <a href="#">Descartadas</a>
+        </div></nav>
+      </div>
+
+      <div class="now-body">
+        <div class="now-kicker">Cierre editorial</div>
+        <div class="now-h" style="margin-bottom:20px">Pendientes de cierre</div>
+
+        <div class="filters" style="margin-bottom:16px">
+          <div class="field">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            Buscar en títulos, textos, remitentes…
+          </div>
+          <div class="field" style="justify-content:space-between">En edición · activas
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+          <div class="field" style="justify-content:space-between">Todas las fuentes
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px" class="t-meta">
+          <span style="color:var(--muted)">8 publicaciones</span>
+          <span class="mono t-label" style="color:var(--muted)">Página 1 de 1</span>
+        </div>
+
+        <div class="ledger">
+          <div class="lrow">
+            <span class="rule pending"></span>
+            <span class="ln">01</span><span class="lt">11:42</span>
+            <span class="src" style="width:26px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg></span>
+            <span class="ltitle">Consejo Nacional de la Magistratura evaluará este lunes a magistrados</span>
+            <span class="lthumb"></span>
+          </div>
+          <div class="lrow">
+            <span class="rule pending"></span>
+            <span class="ln">02</span><span class="lt">11:37</span>
+            <span class="src" style="width:26px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg></span>
+            <span class="ltitle">MAP audita nóminas públicas para determinar número real de empleados</span>
+            <span class="lthumb"></span>
+          </div>
+          <div class="lrow">
+            <span class="rule pending"></span>
+            <span class="ln">03</span><span class="lt">11:20</span>
+            <span class="src" style="width:26px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg></span>
+            <span class="ltitle">FIFA defiende su plan de inversión y niega que pretenda vender activos</span>
+            <span class="lthumb"></span>
+          </div>
+          <div class="lrow hot">
+            <span class="rule pending"></span>
+            <span class="ln">04</span><span class="lt">11:01</span>
+            <span class="src" style="width:26px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg></span>
+            <span class="ltitle">Estado compromete 45.4 millones de pesos en incentivos por 5 años</span>
+            <span class="quick">
+              <button class="qbtn ok" title="Al aire ahora">
+                <svg class="icon-sm" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg></button>
+              <button class="qbtn sch" title="Programar">
+                <svg class="icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></button>
+              <button class="qbtn no" title="Descartar">
+                <svg class="icon-sm" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </span>
+          </div>
+          <div class="lrow">
+            <span class="rule pending"></span>
+            <span class="ln">05</span><span class="lt">10:52</span>
+            <span class="src" style="width:26px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg></span>
+            <span class="ltitle">Estudio revela que presión tributaria efectiva supera el promedio regional</span>
+            <span class="lthumb"></span>
+          </div>
+          <div class="lrow">
+            <span class="rule scheduled"></span>
+            <span class="ln">06</span><span class="lt">10:48</span>
+            <span class="src" style="width:26px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg></span>
+            <span class="ltitle">España reporta entrada masiva de migrantes en Ceuta con miles de casos</span>
+            <span class="chip scheduled">mié 14:00</span>
+            <span class="lthumb"></span>
+          </div>
+          <div class="lrow">
+            <span class="rule pending"></span>
+            <span class="ln">07</span><span class="lt">09:48</span>
+            <span class="src" style="width:26px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg></span>
+            <span class="ltitle">INFOTEP ofrecerá 500 nuevas becas para cursos técnicos en Barahona y Azua</span>
+            <span class="lthumb"></span>
+          </div>
+          <div class="lrow">
+            <span class="rule draft"></span>
+            <span class="ln">08</span><span class="lt">09:12</span>
+            <span class="src" style="width:26px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg></span>
+            <span class="ltitle">Juegos Centroamericanos y del Caribe inician con ambiente festivo</span>
+            <span class="chip draft">Construcción</span>
+            <span class="lthumb"></span>
+          </div>
+          <div class="lrow">
+            <span class="rule approved"></span>
+            <span class="ln">09</span><span class="lt">08:30</span>
+            <span class="src" style="width:26px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg></span>
+            <span class="ltitle">Banco Central mantiene tasa de política monetaria en 5.25%</span>
+            <span class="chip approved">Al aire</span>
+            <span class="lthumb"></span>
+          </div>
+          <div class="lrow">
+            <span class="rule approved"></span>
+            <span class="ln">10</span><span class="lt">08:04</span>
+            <span class="src" style="width:26px">
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg></span>
+            <span class="ltitle">Nutrición digital: herramientas tecnológicas para mejorar hábitos</span>
+            <span class="chip approved">Al aire</span>
+            <span class="lthumb"></span>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><i style="background:var(--pending)"></i>Pendiente</span>
+          <span><i style="background:var(--schedule)"></i>Programada</span>
+          <span><i style="background:var(--approve)"></i>Al aire</span>
+          <span><i style="background:var(--brand)"></i>Falló</span>
+          <span><i style="background:var(--muted)"></i>En construcción</span>
+          <span style="margin-left:auto">La fila 04 muestra el hover con acciones rápidas</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     C · KANBAN
+     ============================================================ -->
+<section class="panel" id="p-c" hidden>
+  <div class="brief">
+    <div>
+      <div class="kicker">Dirección C</div>
+      <h2>Sala de redacción — kanban</h2>
+    </div>
+    <p>Columnas por estado, arrastrar para avanzar. La incluyo dibujada para que veas por qué la descarto, no para que la elijas.</p>
+    <span class="verdict no">✕ No la recomiendo</span>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <span class="dot" style="background:#E0685E"></span>
+      <span class="dot" style="background:#E5B84B"></span>
+      <span class="dot" style="background:#6FBF95"></span>
+      <span class="frame-url">localhost:3000</span>
+    </div>
+    <div class="app">
+      <div class="app-header">
+        <div class="app-header-inner">
+          <div class="logo">
+            <span class="wordmark">Pagina<em>Uno</em><span class="tld">.do</span></span>
+            <span class="role">Mesa de edición</span>
+          </div>
+          <span class="app-date">viernes 31 de julio, 2026</span>
+        </div>
+      </div>
+      <div class="now-body">
+        <div class="board">
+          <div class="col">
+            <div class="col-h"><span>Construcción</span><b>2</b></div>
+            <div class="kcard"><span class="rule draft"></span><div class="kbody">
+              <div class="kimg"></div><h4>Juegos Centroamericanos y del Caribe inician con ambiente festivo</h4></div></div>
+            <div class="kcard"><span class="rule draft"></span><div class="kbody">
+              <h4>Reporte sin cerrar — falta el LISTO del reportero</h4></div></div>
+          </div>
+          <div class="col">
+            <div class="col-h"><span>Pendientes</span><b>8</b></div>
+            <div class="kcard"><span class="rule pending"></span><div class="kbody">
+              <div class="kimg"></div><h4>Consejo Nacional de la Magistratura evaluará este lunes a magistrados</h4></div></div>
+            <div class="kcard"><span class="rule pending"></span><div class="kbody">
+              <div class="kimg"></div><h4>MAP audita nóminas públicas para determinar número real de empleados</h4></div></div>
+            <div class="kcard"><span class="rule pending"></span><div class="kbody">
+              <h4>FIFA defiende su plan de inversión y niega que pretenda vender activos</h4></div></div>
+          </div>
+          <div class="col">
+            <div class="col-h"><span>Programadas</span><b>3</b></div>
+            <div class="kcard"><span class="rule scheduled"></span><div class="kbody">
+              <div class="kimg"></div><h4>España reporta entrada masiva de migrantes en Ceuta</h4>
+              <div class="kwhen">mié 14:00</div></div></div>
+            <div class="kcard"><span class="rule scheduled"></span><div class="kbody">
+              <h4>Estudio revela presión tributaria efectiva sobre el promedio</h4>
+              <div class="kwhen">jue 09:00</div></div></div>
+          </div>
+          <div class="col">
+            <div class="col-h"><span>Al aire</span><b>24</b></div>
+            <div class="kcard"><span class="rule approved"></span><div class="kbody">
+              <div class="kimg"></div><h4>Nutrición digital: herramientas tecnológicas para mejorar hábitos</h4></div></div>
+            <div class="kcard"><span class="rule approved"></span><div class="kbody">
+              <h4>Banco Central mantiene tasa de política monetaria en 5.25%</h4></div></div>
+          </div>
+        </div>
+
+        <div class="warn">
+          <b>Por qué la descarto</b>
+          Arrastrar para publicar es peligroso: un drop accidental publica en WordPress, Facebook e Instagram a la vez, y eso no se deshace. Además los estados no son libremente arrastrables — no puedes devolver «Al aire» a «Pendiente», así que la mitad de los movimientos que el patrón sugiere son inválidos. Y la columna «Al aire» crece sin límite: a los dos meses tiene 300 tarjetas y deja de comunicar nada.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     REFINAMIENTOS
+     ============================================================ -->
+<section class="panel" id="p-ref" hidden>
+  <div class="brief">
+    <div>
+      <div class="kicker">Transversal</div>
+      <h2>Refinamientos que aplican a cualquier dirección</h2>
+    </div>
+    <p>Baratos, independientes entre sí, y cada uno se puede enviar solo. No dependen de qué dirección elijas.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="demo">
+      <div class="kicker">01 · Deshacer con ventana de 10 s</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;max-width:52ch">Hoy aprobar es instantáneo e irreversible. Un contador antes de disparar el webhook quita el miedo a equivocarse.</p>
+      <div class="toast">
+        <svg class="ring" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(245,242,236,.22)" stroke-width="3"/>
+          <circle cx="18" cy="18" r="15" fill="none" stroke="#6FBF95" stroke-width="3"
+                  stroke-dasharray="94" stroke-dashoffset="30" stroke-linecap="round" transform="rotate(-90 18 18)"/>
+        </svg>
+        <span>Al aire en 7 s — <b>Consejo Nacional…</b></span>
+        <button>Deshacer</button>
+      </div>
+    </div>
+
+    <div class="demo">
+      <div class="kicker">02 · Paleta de comandos (⌘K)</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;max-width:52ch">Saltar a una nota, cambiar de filtro o actuar sin tocar el mouse.</p>
+      <div class="palette">
+        <div class="pin">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          magistr
+        </div>
+        <div class="psec">Publicaciones</div>
+        <div class="pitem on">
+          <span class="rule pending" style="height:15px;align-self:center"></span>
+          Consejo Nacional de la <b>Magistr</b>atura…<span class="pk">↵</span>
+        </div>
+        <div class="psec">Acciones</div>
+        <div class="pitem">
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:var(--approve)"><path d="m20 6-11 11-5-5"/></svg>
+          Aprobar la nota seleccionada<span class="pk">A</span>
+        </div>
+        <div class="pitem">
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:var(--muted)"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+          Filtrar: solo programadas<span class="pk">⇧S</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo">
+      <div class="kicker">03 · Carga con la silueta del contenido</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;max-width:52ch">Los skeletons de hoy son bloques grises de 112&nbsp;px. Con la forma real, el salto al cargar desaparece.</p>
+      <div style="background:var(--surface);border:1px solid var(--divider);border-radius:7px;padding:4px 13px">
+        <div class="sk"><i style="width:3px;height:26px"></i><i style="width:18px;height:9px"></i><i style="width:34px;height:9px"></i><i style="flex:1;height:12px"></i><i style="width:34px;height:34px"></i></div>
+        <div class="sk"><i style="width:3px;height:26px"></i><i style="width:18px;height:9px"></i><i style="width:34px;height:9px"></i><i style="flex:1;height:12px"></i><i style="width:34px;height:34px"></i></div>
+        <div class="sk" style="border-bottom:0"><i style="width:3px;height:26px"></i><i style="width:18px;height:9px"></i><i style="width:34px;height:9px"></i><i style="flex:1;height:12px"></i><i style="width:34px;height:34px"></i></div>
+      </div>
+    </div>
+
+    <div class="demo dark">
+      <div class="kicker">04 · Modo oscuro</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;max-width:52ch"><code style="font-family:var(--font-mono);font-size:12px">darkMode: 'class'</code> ya está en <code style="font-family:var(--font-mono);font-size:12px">tailwind.config.ts</code>, pero no hay una sola variante <code style="font-family:var(--font-mono);font-size:12px">dark:</code> escrita. Media jornada de trabajo.</p>
+      <div style="background:var(--surface);border:1px solid var(--divider);border-radius:7px;overflow:hidden">
+        <div class="lrow" style="border-color:var(--divider)">
+          <span class="rule pending"></span><span class="ln">01</span><span class="lt">11:42</span>
+          <span class="ltitle">Consejo Nacional de la Magistratura evaluará…</span>
+          <span class="lthumb"></span>
+        </div>
+        <div class="lrow" style="border-color:var(--divider)">
+          <span class="rule approved"></span><span class="ln">02</span><span class="lt">08:30</span>
+          <span class="ltitle">Banco Central mantiene tasa de política…</span>
+          <span class="chip approved">Al aire</span><span class="lthumb"></span>
+        </div>
+        <div class="lrow" style="border-bottom:0">
+          <span class="rule scheduled"></span><span class="ln">03</span><span class="lt">10:48</span>
+          <span class="ltitle">España reporta entrada masiva de migrantes…</span>
+          <span class="chip scheduled">mié 14:00</span><span class="lthumb"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <strong>Plan sugerido.</strong> Fase 1 — el ledger de la dirección B con estado visible en reposo, acciones rápidas y navegación por teclado (una sesión, riesgo bajo, y deja la lista lista para ser el riel). Fase 2 — partir la pantalla como en A y que aprobar avance solo a la siguiente. Los refinamientos entran donde quepan; el de deshacer yo lo metería en la Fase 1 porque baja el costo de equivocarse desde el primer día.
+  </div>
+</section>
+
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.switcher button');
+  const panels = { now:'p-now', a:'p-a', b:'p-b', c:'p-c', ref:'p-ref' };
+  tabs.forEach(btn => btn.addEventListener('click', () => {
+    tabs.forEach(b => b.setAttribute('aria-selected', String(b === btn)));
+    Object.entries(panels).forEach(([k, id]) =>
+      document.getElementById(id).hidden = (k !== btn.dataset.p));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }));
+</script>
+
+</body>
+</html>

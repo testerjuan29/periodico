@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Editor v2 — editar en el preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════ Tokens Blanco editorial (los mismos ya aplicados) ══════════ */
+:root{
+  --canvas:#F5F5F3; --paper:#FFFFFF; --surface:#FFFFFF;
+  --ink:#1B1917; --ink-soft:rgba(27,25,23,.75); --muted:#75716B;
+  --divider:#E7E6E2; --subtle:#F1F1EE; --hair:rgba(22,20,18,.08);
+  --brand:#B91C1C; --brand-dark:#8F1414; --brand-soft:#F3E1E1;
+  --ok:#1F5940; --ok-soft:#DDECE4;
+  --warn:#C87F17; --warn-soft:#F5E9D2;
+  --info:#163A6C; --info-soft:#DFE5F0;
+  --f-d:'Fraunces',Georgia,serif; --f-u:'Instrument Sans',system-ui,sans-serif;
+  --f-m:'JetBrains Mono',ui-monospace,monospace;
+  --r-s:6px; --r:8px; --r-m:10px; --r-l:12px;
+  --sh-1:0 1px 2px rgba(27,25,23,.05);
+  --sh-2:0 2px 8px -2px rgba(27,25,23,.08),0 1px 2px rgba(27,25,23,.05);
+  --sh-3:0 12px 32px -8px rgba(27,25,23,.14),0 2px 8px -2px rgba(27,25,23,.06);
+  --vf:'opsz' 32,'SOFT' 30,'WONK' 0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--f-u);background:#0C0D10;color:var(--ink);
+  -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;
+  line-height:1.55;display:flex;flex-direction:column;overflow:hidden;
+}
+.disp{font-family:var(--f-d);font-variation-settings:var(--vf)}
+.ic{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic-s{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ── lab ── */
+.lab{
+  flex:none;background:#0C0D10;color:#F2F0EC;padding:10px 18px;
+  display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,.08);
+  font-size:12px;flex-wrap:wrap;
+}
+.lab b.tag{background:var(--brand);color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;letter-spacing:.06em}
+.lab button{
+  font-family:inherit;font-size:12px;font-weight:500;color:rgba(242,240,236,.75);
+  background:rgba(255,255,255,.08);border:0;border-radius:6px;padding:6px 12px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;
+}
+.lab button:hover{background:rgba(255,255,255,.16);color:#fff}
+.lab button[aria-pressed="true"]{background:var(--warn);color:#1A1614;font-weight:600}
+.lab .hint{margin-left:auto;color:rgba(242,240,236,.4);font-size:11px}
+.lab kbd{font-family:var(--f-m);background:rgba(255,255,255,.1);border-radius:3px;padding:1px 5px;font-size:10px}
+
+/* ══════════ APP ══════════ */
+.app{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--paper)}
+
+.hdr{
+  flex:none;display:flex;align-items:center;gap:16px;height:56px;
+  padding:0 20px;border-bottom:1px solid var(--divider);background:var(--paper);position:relative;
+}
+.mark{font-family:var(--f-d);font-size:20px;font-weight:600;line-height:1;font-variation-settings:var(--vf)}
+.mark em{font-style:normal;color:var(--brand)}
+.mark .tld{font-family:var(--f-m);font-size:12px;font-weight:400;color:var(--muted)}
+.back{
+  display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);
+  text-decoration:none;cursor:pointer;border:0;background:none;font-family:inherit;
+  padding:6px 10px;border-radius:999px;
+}
+.back:hover{background:var(--subtle);color:var(--ink)}
+.editing-chip{
+  display:inline-flex;align-items:center;gap:7px;background:var(--warn-soft);color:#8A5710;
+  border-radius:999px;padding:5px 13px;font-size:12px;font-weight:600;
+}
+.editing-chip .dot{width:7px;height:7px;border-radius:999px;background:var(--warn);animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.35}}
+.clock{margin-left:auto;font-family:var(--f-m);font-size:13px;font-weight:600}
+
+/* segmento */
+.segbar{flex:none;display:flex;justify-content:center;padding:14px 20px 0;background:var(--canvas);position:relative}
+.seg{display:flex;gap:3px;background:rgba(27,25,23,.06);border-radius:var(--r-m);padding:3px}
+.seg button{
+  font-family:inherit;font-size:12.5px;font-weight:500;color:var(--muted);
+  background:transparent;border:0;border-radius:var(--r);padding:7px 16px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;transition:all .15s;
+}
+.seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--sh-1);font-weight:600}
+.seg kbd{font-family:var(--f-m);font-size:9.5px;color:var(--muted);background:rgba(27,25,23,.06);border-radius:3px;padding:0 4px}
+
+.scroll{flex:1;min-height:0;overflow-y:auto;background:var(--canvas);padding:18px 26px 30px;position:relative}
+.scroll::-webkit-scrollbar{width:9px}
+.scroll::-webkit-scrollbar-thumb{background:rgba(27,25,23,.14);border-radius:9px}
+
+/* ══════════ SUPERFICIES EDITABLES ══════════
+   La afordancia clave: todo lo editable se marca al pasar el mouse
+   y se enciende al enfocar. */
+[contenteditable]{outline:none;border-radius:6px;transition:box-shadow .15s,background .15s}
+[contenteditable]:hover{box-shadow:0 0 0 1.5px rgba(27,25,23,.14);background:rgba(27,25,23,.015)}
+[contenteditable]:focus{box-shadow:0 0 0 2px var(--info);background:#fff}
+[contenteditable]:empty::before{content:attr(data-ph);color:var(--muted);opacity:.6}
+
+/* ── marco navegador editable ── */
+.browser{
+  max-width:780px;margin:0 auto;border-radius:var(--r-l);overflow:hidden;
+  background:var(--surface);box-shadow:var(--sh-3);border:1px solid var(--hair);position:relative;
+}
+.bbar{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--subtle);border-bottom:1px solid var(--divider)}
+.bdot{width:9px;height:9px;border-radius:999px;flex:none}
+.burl{
+  flex:1;background:var(--surface);border-radius:999px;padding:4px 14px;
+  font-family:var(--f-m);font-size:11px;color:var(--muted);text-align:center;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-shadow:inset 0 0 0 1px var(--divider);
+}
+.burl b{color:var(--ink-soft);font-weight:500}
+.article{padding:30px 38px 34px}
+
+/* hero editable */
+.hero{
+  position:relative;border-radius:var(--r-m);overflow:hidden;margin-bottom:20px;
+  background:var(--subtle);display:flex;justify-content:center;padding:12px;cursor:pointer;
+}
+.hero .social{pointer-events:none}
+.hero .veil{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;
+  background:rgba(27,25,23,.45);opacity:0;transition:opacity .18s;color:#fff;
+  font-size:13px;font-weight:600;backdrop-filter:blur(1px);
+}
+.hero:hover .veil{opacity:1}
+
+/* social card */
+.social{aspect-ratio:1;width:100%;max-width:260px;border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;background:#111}
+.social .ph{flex:1;position:relative}
+.social .ph::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 38%,rgba(0,0,0,.85))}
+.social .cap{position:absolute;left:14px;right:14px;bottom:12px;z-index:2}
+.social .kick{display:inline-block;background:#B91C1C;color:#fff;font-size:7.5px;font-weight:700;letter-spacing:.15em;padding:3px 7px;text-transform:uppercase;margin-bottom:6px}
+.social .head{font-family:Georgia,serif;color:#fff;font-size:14px;font-weight:700;line-height:1.15;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+.social .foot{height:40px;background:#111;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-top:3px solid #B91C1C}
+.social .foot .n{font-family:Arial Black,Arial,sans-serif;font-size:11px}
+.social .foot .n i{font-style:normal;color:#E5484D}
+.social .foot .m{text-align:right;font-size:7.5px;line-height:1.35;opacity:.85}
+
+/* chips de categorías/tags editables */
+.chiprow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.chiprow.tags{margin:20px 0 0;padding-top:16px;border-top:1px solid var(--divider)}
+.chiprow .lbl{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 10px;
+  font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  background:var(--brand-soft);color:var(--brand-dark);
+}
+.chip.tag{background:var(--subtle);color:var(--ink-soft);text-transform:none;letter-spacing:0;font-size:12px;font-weight:500}
+.chip button{
+  border:0;background:none;cursor:pointer;color:inherit;opacity:.55;display:flex;padding:0;
+}
+.chip button:hover{opacity:1}
+.chipadd{
+  border:1px dashed var(--divider);background:transparent;border-radius:999px;
+  font-family:inherit;font-size:11px;color:var(--muted);padding:3px 10px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:4px;
+}
+.chipadd:hover{border-color:var(--muted);color:var(--ink)}
+.chipinput{
+  border:1px solid var(--info);border-radius:999px;font-family:inherit;font-size:12px;
+  padding:3px 10px;outline:none;width:130px;background:#fff;
+}
+
+/* título / bajada / cuerpo editables */
+.t-edit{
+  font-family:var(--f-d);font-size:28px;font-weight:600;line-height:1.12;
+  letter-spacing:-.02em;font-variation-settings:'opsz' 32,'SOFT' 24;
+  margin-bottom:6px;padding:2px 6px;margin-left:-6px;
+}
+.counter{
+  font-family:var(--f-m);font-size:10px;color:var(--muted);margin-bottom:12px;
+  display:flex;align-items:center;gap:6px;
+}
+.counter .bar{height:3px;width:90px;background:var(--subtle);border-radius:3px;overflow:hidden}
+.counter .bar i{display:block;height:100%;background:var(--ok);transition:width .2s,background .2s}
+.counter.over{color:var(--brand)}
+.counter.over .bar i{background:var(--brand)}
+.d-edit{
+  font-family:var(--f-d);font-size:16px;font-style:italic;line-height:1.5;color:var(--ink-soft);
+  border-left:3px solid var(--brand);padding:3px 6px 3px 14px;margin-bottom:18px;
+}
+.toolbar{
+  position:sticky;top:0;z-index:20;display:inline-flex;gap:2px;align-items:center;
+  background:var(--surface);border:1px solid var(--divider);border-radius:var(--r);
+  padding:4px 6px;box-shadow:var(--sh-2);margin-bottom:10px;
+}
+.toolbar button{
+  width:28px;height:28px;border-radius:var(--r-s);border:0;background:transparent;
+  color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+}
+.toolbar button:hover{background:var(--subtle)}
+.toolbar .sep{width:1px;height:16px;background:var(--divider);margin:0 4px}
+.b-edit{font-size:14.5px;line-height:1.68;color:var(--ink-soft);padding:4px 6px;margin-left:-6px}
+.b-edit p{margin-bottom:12px}
+.b-edit p:first-child::first-letter{
+  font-family:var(--f-d);font-size:44px;font-weight:600;color:var(--brand);
+  float:left;line-height:.8;margin:5px 8px 0 0;
+}
+
+/* ── tarjetas FB / IG editables ── */
+.post{max-width:460px;margin:0 auto;border-radius:var(--r-l);overflow:hidden;background:var(--surface);box-shadow:var(--sh-3);border:1px solid var(--hair);position:relative}
+.post-h{display:flex;align-items:center;gap:11px;padding:13px 15px}
+.av{width:38px;height:38px;border-radius:999px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;flex:none}
+.post-h .nm{font-size:13.5px;font-weight:600}
+.post-h .mt{font-size:11.5px;color:var(--muted)}
+.post-txt{padding:2px 15px 12px;font-size:14px;line-height:1.55;color:var(--ink-soft);white-space:pre-wrap}
+.post-img{display:flex;justify-content:center;background:var(--subtle);border-top:1px solid var(--divider);border-bottom:1px solid var(--divider)}
+.post-img .social{max-width:100%;border-radius:0}
+.post-act{display:flex;padding:6px 12px}
+.post-act span{flex:1;text-align:center;font-size:12px;color:var(--muted);padding:7px 0;display:flex;align-items:center;justify-content:center;gap:6px}
+.ig-caption{padding:10px 15px 4px;font-size:13px;line-height:1.5}
+.ig-caption .who{font-weight:600}
+.hashwrap{padding:4px 15px 14px}
+.hashwrap .chiprow{margin:6px 0 0}
+.hash{background:var(--info-soft);color:var(--info);text-transform:none;letter-spacing:0;font-size:12px;font-weight:500}
+
+.note-under{
+  max-width:460px;margin:10px auto 0;font-size:12px;color:var(--muted);
+  display:flex;gap:7px;align-items:flex-start;padding:0 4px;
+}
+
+/* ── barra de guardado ── */
+.savebar{
+  flex:none;display:flex;align-items:center;gap:12px;padding:12px 22px;
+  border-top:1px solid var(--divider);background:rgba(255,255,255,.96);
+  backdrop-filter:blur(8px);position:relative;
+}
+.changes{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);min-width:0;flex-wrap:wrap}
+.changes .fld{
+  display:inline-flex;align-items:center;gap:5px;background:var(--warn-soft);color:#8A5710;
+  border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;
+}
+.changes .fld i{width:6px;height:6px;border-radius:999px;background:var(--warn);font-style:normal}
+.btn{
+  font-family:inherit;font-size:13px;font-weight:500;border-radius:var(--r-m);
+  padding:0 16px;height:40px;display:inline-flex;align-items:center;gap:8px;
+  border:1px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s;
+}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-save{background:var(--ink);color:var(--paper);font-weight:600;box-shadow:var(--sh-2);margin-left:auto}
+.btn-save:hover:not(:disabled){background:#000}
+.btn-gh{background:transparent;color:var(--muted)}
+.btn-gh:hover{background:var(--subtle);color:var(--ink)}
+.kbd{font-family:var(--f-m);font-size:9.5px;font-weight:600;background:rgba(255,255,255,.22);border-radius:4px;padding:1px 5px}
+.btn-gh .kbd{background:var(--subtle);color:var(--muted)}
+
+/* toast */
+.toasts{position:fixed;bottom:74px;right:22px;z-index:400;display:flex;flex-direction:column;gap:10px}
+.toast{
+  background:#15130F;color:#F2F0EC;border-radius:var(--r-l);padding:13px 15px;
+  display:flex;align-items:center;gap:12px;box-shadow:var(--sh-3);font-size:13px;
+  animation:pop .25s cubic-bezier(.16,1,.3,1);min-width:300px;
+}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.toast.out{animation:away .2s forwards}
+@keyframes away{to{opacity:0;transform:translateX(14px)}}
+.toast .msg b{display:block;font-weight:400;color:rgba(242,240,236,.6);font-size:11.5px;margin-top:1px}
+
+/* ══════════ anotaciones ══════════ */
+.pin{
+  display:none;position:absolute;z-index:80;width:22px;height:22px;border-radius:999px;
+  background:var(--warn);color:#fff;font-family:var(--f-m);font-size:11px;font-weight:700;
+  align-items:center;justify-content:center;box-shadow:0 0 0 3px rgba(200,127,23,.25),var(--sh-2);font-style:normal;
+}
+body.annot .pin{display:flex}
+.annot-panel{
+  position:fixed;top:64px;right:14px;bottom:14px;width:320px;z-index:90;
+  background:var(--surface);border-radius:var(--r-l);box-shadow:var(--sh-3);
+  border:1px solid var(--hair);padding:18px;overflow-y:auto;display:none;
+}
+body.annot .annot-panel{display:block}
+.annot-panel h3{font-family:var(--f-d);font-size:18px;font-weight:600;font-variation-settings:var(--vf);margin-bottom:4px}
+.annot-panel .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.ai{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--divider);font-size:12.5px;line-height:1.5;color:var(--ink-soft)}
+.ai:last-child{border:0}
+.ai .num{width:20px;height:20px;border-radius:999px;background:var(--warn);color:#fff;flex:none;font-family:var(--f-m);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.ai b{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<div class="lab">
+  <b class="tag">PROPUESTA · EDITOR</b>
+  <span>Editar en el preview — sin formulario</span>
+  <button id="btnAnnot" aria-pressed="false">
+    <svg class="ic-s" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    Ver qué cambió
+  </button>
+  <span class="hint">Hacé click en cualquier texto y escribí · <kbd>1 2 3</kbd> pestañas · <kbd>Ctrl+S</kbd> guardar</span>
+</div>
+
+<div class="app">
+  <header class="hdr">
+    <span class="mark disp">Pagina<em>Uno</em><span class="tld">.do</span></span>
+    <button class="back">
+      <svg class="ic-s" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+      Mesa de edición
+    </button>
+    <span class="editing-chip"><span class="dot"></span> Editando copy</span>
+    <i class="pin" data-n="7" style="right:200px;top:16px">7</i>
+    <span class="clock">21:14</span>
+  </header>
+
+  <div class="segbar">
+    <i class="pin" data-n="1" style="left:calc(50% - 220px);top:16px">1</i>
+    <div class="seg" role="tablist">
+      <button role="tab" aria-selected="true" data-t="wp">
+        <svg class="ic-s" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        WordPress <kbd>1</kbd></button>
+      <button role="tab" aria-selected="false" data-t="fb">
+        <svg class="ic-s" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+        Facebook <kbd>2</kbd></button>
+      <button role="tab" aria-selected="false" data-t="ig">
+        <svg class="ic-s" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/></svg>
+        Instagram <kbd>3</kbd></button>
+    </div>
+  </div>
+
+  <div class="scroll">
+
+    <!-- ══ WORDPRESS: el artículo ES el formulario ══ -->
+    <section id="tab-wp">
+      <div class="browser">
+        <div class="bbar">
+          <span class="bdot" style="background:#E0685E"></span>
+          <span class="bdot" style="background:#E5B84B"></span>
+          <span class="bdot" style="background:#6FBF95"></span>
+          <span class="burl"><b>paginauno.do</b>/<span id="urlSlug">consejo-nacional-de-la-magistratura-evaluara-este-lunes</span></span>
+        </div>
+        <div class="article">
+
+          <div class="hero" title="Cambiar la imagen destacada">
+            <i class="pin" data-n="4" style="left:-11px;top:-11px">4</i>
+            <div class="social">
+              <div class="ph" style="background:linear-gradient(135deg,#A8B5BE,#5D6975)">
+                <div class="cap"><span class="kick">Actualidad</span>
+                <div class="head" id="socialHead">Consejo Nacional de la Magistratura evaluará este lunes a magistrados</div></div>
+              </div>
+              <div class="foot"><span class="n">PAGINA<i>UNO</i></span>
+              <span class="m">3 ago 2026<br>@paginauno.do</span></div>
+            </div>
+            <div class="veil">
+              <svg class="ic" viewBox="0 0 24 24"><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v13M8 7l4-4 4 4"/></svg>
+              Cambiar imagen — se re-renderiza con el template
+            </div>
+          </div>
+
+          <div class="chiprow" id="catRow" style="position:relative">
+            <i class="pin" data-n="5" style="right:-8px;top:-6px">5</i>
+            <span class="lbl">Categorías</span>
+          </div>
+
+          <h1 class="t-edit" id="fTitle" contenteditable="true" data-f="Titular"
+              data-ph="Titular editorial…">Consejo Nacional de la Magistratura evaluará este lunes a magistrados</h1>
+          <div class="counter" id="titleCounter" style="position:relative">
+            <i class="pin" data-n="2" style="left:170px;top:-8px">2</i>
+            <span class="bar"><i style="width:60%"></i></span>
+            <span id="titleCount">66 / 110</span>
+            <span style="font-family:var(--f-u)">· línea editorial</span>
+          </div>
+
+          <p class="d-edit" id="fDek" contenteditable="true" data-f="Bajada"
+             data-ph="Bajada editorial…">El órgano constitucional inicia el proceso de evaluación de desempeño de los jueces de las altas cortes, conforme al calendario establecido.</p>
+
+          <div class="toolbar" style="position:relative">
+            <i class="pin" data-n="3" style="right:-9px;top:-11px">3</i>
+            <button title="Negrita" data-cmd="bold"><b style="font-size:13px">B</b></button>
+            <button title="Cursiva" data-cmd="italic"><i style="font-family:Georgia;font-size:13px">I</i></button>
+            <span class="sep"></span>
+            <button title="Cita" data-cmd="quote">
+              <svg class="ic-s" viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5H3v7h4c0 4-4 4-4 4zM14 21c3 0 7-1 7-8V5h-7v7h4c0 4-4 4-4 4z"/></svg></button>
+            <button title="Lista" data-cmd="ul">
+              <svg class="ic-s" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+            <span class="sep"></span>
+            <button title="Deshacer" data-cmd="undo">
+              <svg class="ic-s" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg></button>
+          </div>
+
+          <div class="b-edit" id="fBody" contenteditable="true" data-f="Cuerpo">
+            <p>Santo Domingo. – El Consejo Nacional de la Magistratura iniciará este lunes el proceso de evaluación de desempeño de los magistrados de las altas cortes, conforme al calendario establecido por el órgano constitucional.</p>
+            <p>La sesión estará encabezada por el presidente de la República y contará con la participación de los representantes del Poder Legislativo y del Poder Judicial que integran el consejo.</p>
+            <p>"El proceso se desarrollará con apego estricto a la Constitución y a la ley", indicó una fuente del órgano al ser consultada sobre la metodología que se aplicará.</p>
+          </div>
+
+          <div class="chiprow tags" id="tagRow">
+            <span class="lbl">Etiquetas</span>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ FACEBOOK: el post ES el formulario ══ -->
+    <section id="tab-fb" hidden>
+      <div class="post">
+        <i class="pin" data-n="6" style="left:-11px;top:-11px">6</i>
+        <div class="post-h">
+          <span class="av">P</span>
+          <span><span class="nm">PaginaUno.Do</span><br><span class="mt">Ahora · Público</span></span>
+        </div>
+        <div class="post-txt" id="fFb" contenteditable="true" data-f="Facebook"
+             data-ph="Caption de Facebook…">El Consejo Nacional de la Magistratura evaluará este lunes a los magistrados de las altas cortes.
+
+La sesión estará encabezada por el presidente de la República, con representantes del Poder Legislativo y Judicial.
+
+Todos los detalles en PaginaUno.Do</div>
+        <div class="post-img">
+          <div class="social" style="max-width:100%">
+            <div class="ph" style="background:linear-gradient(135deg,#A8B5BE,#5D6975)">
+              <div class="cap"><span class="kick">Actualidad</span>
+              <div class="head">Consejo Nacional de la Magistratura evaluará este lunes a magistrados</div></div>
+            </div>
+            <div class="foot"><span class="n">PAGINA<i>UNO</i></span>
+            <span class="m">3 ago 2026<br>@paginauno.do</span></div>
+          </div>
+        </div>
+        <div class="post-act">
+          <span><svg class="ic-s" viewBox="0 0 24 24"><path d="M7 10v12M15 5.9 14 10h5.8a2 2 0 0 1 2 2.3l-1.4 9A2 2 0 0 1 18.4 23H7V10l4.5-9a3 3 0 0 1 3.5 4z"/></svg>Me gusta</span>
+          <span><svg class="ic-s" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.8-.9L3 20.5l1.5-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>Comentar</span>
+          <span><svg class="ic-s" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>Compartir</span>
+        </div>
+      </div>
+      <p class="note-under">
+        <svg class="ic-s" viewBox="0 0 24 24" style="margin-top:2px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        El texto del post se edita directamente ahí arriba. La imagen es la misma del template — se cambia desde la pestaña WordPress.
+      </p>
+    </section>
+
+    <!-- ══ INSTAGRAM ══ -->
+    <section id="tab-ig" hidden>
+      <div class="post" style="max-width:400px">
+        <div class="post-h">
+          <span class="av" style="width:30px;height:30px;font-size:12px">P</span>
+          <span class="nm">paginauno.do</span>
+        </div>
+        <div class="post-img" style="border-top:0">
+          <div class="social" style="max-width:100%">
+            <div class="ph" style="background:linear-gradient(135deg,#A8B5BE,#5D6975)">
+              <div class="cap"><span class="kick">Actualidad</span>
+              <div class="head">Consejo Nacional de la Magistratura evaluará este lunes a magistrados</div></div>
+            </div>
+            <div class="foot"><span class="n">PAGINA<i>UNO</i></span>
+            <span class="m">3 ago 2026<br>@paginauno.do</span></div>
+          </div>
+        </div>
+        <div class="ig-caption">
+          <span class="who">paginauno.do</span>
+          <span id="fIg" contenteditable="true" data-f="Instagram"
+                data-ph="Caption de Instagram…">Arranca este lunes la evaluación de desempeño de los magistrados de las altas cortes. El Consejo Nacional de la Magistratura sesionará con representación de los tres poderes del Estado.</span>
+        </div>
+        <div class="counter" style="padding:0 15px;margin-bottom:2px">
+          <span class="bar"><i id="igBar" style="width:9%"></i></span>
+          <span id="igCount">198 / 2200</span>
+        </div>
+        <div class="hashwrap">
+          <div class="chiprow" id="hashRow"></div>
+          <div class="counter" style="margin:8px 0 0">
+            <span id="hashCount">6 / 30 hashtags</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- barra de guardado -->
+  <div class="savebar">
+    <i class="pin" data-n="8" style="left:330px;top:-11px">8</i>
+    <span class="changes" id="changes"><span style="color:var(--muted)">Sin cambios</span></span>
+    <button class="btn btn-gh" id="btnCancel">Cancelar <span class="kbd">Esc</span></button>
+    <button class="btn btn-save" id="btnSave" disabled>
+      <svg class="ic" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+      Guardar cambios <span class="kbd" style="background:rgba(255,255,255,.2)">Ctrl+S</span>
+    </button>
+  </div>
+</div>
+
+<aside class="annot-panel">
+  <h3>Qué cambió y por qué</h3>
+  <p class="sub">La idea central: el preview que ya existe se vuelve editable. No hay formulario.</p>
+  <div class="ai"><span class="num">1</span><span><b>Editás en el preview.</b> Mismo segmentado WP/FB/IG del triage, pero cada preview acepta clicks. Lo que ves mientras escribís es exactamente lo que se publica.</span></div>
+  <div class="ai"><span class="num">2</span><span><b>Contadores editoriales.</b> El titular marca 110 (la línea editorial de PaginaUno), con barra que se pone roja al pasarse. Antes el campo permitía 200 sin aviso.</span></div>
+  <div class="ai"><span class="num">3</span><span><b>Toolbar flotante y pegajosa.</b> Negrita, cursiva, cita y listas siguen ahí (es el mismo Tiptap), pero flotando sobre el artículo en vez de encerrar un textarea.</span></div>
+  <div class="ai"><span class="num">4</span><span><b>La imagen se cambia desde el hero.</b> Hover sobre la imagen → overlay "Cambiar imagen". Ya no es una sección aparte arriba del formulario.</span></div>
+  <div class="ai"><span class="num">5</span><span><b>Categorías y etiquetas como chips vivos.</b> × para quitar, + para agregar, en el mismo lugar donde se ven en el artículo publicado.</span></div>
+  <div class="ai"><span class="num">6</span><span><b>Facebook e Instagram se editan dentro de sus tarjetas.</b> El caption de FB se escribe en el post; el de IG bajo la foto con su contador de 2200 y el tope de 30 hashtags.</span></div>
+  <div class="ai"><span class="num">7</span><span><b>Estado "Editando" visible</b> en el header, con vuelta clara a la mesa de edición.</span></div>
+  <div class="ai"><span class="num">8</span><span><b>La barra de guardado nombra los cambios.</b> "Titular · Cuerpo · Facebook" como chips ámbar — sabés qué tocaste antes de guardar. Ctrl+S guarda; salir con cambios sin guardar avisa.</span></div>
+</aside>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* ══ estado de cambios ══ */
+const dirty = new Set();
+const changesEl = document.getElementById('changes');
+const saveBtn = document.getElementById('btnSave');
+
+function refreshChanges(){
+  if (dirty.size === 0){
+    changesEl.innerHTML = '<span style="color:var(--muted)">Sin cambios</span>';
+    saveBtn.disabled = true;
+    return;
+  }
+  changesEl.innerHTML = [...dirty].map(f => `<span class="fld"><i></i>${f}</span>`).join('');
+  saveBtn.disabled = false;
+}
+
+document.querySelectorAll('[contenteditable]').forEach(el => {
+  el.addEventListener('input', () => {
+    dirty.add(el.dataset.f);
+    refreshChanges();
+    if (el.id === 'fTitle') syncTitle();
+    if (el.id === 'fIg') syncIg();
+  });
+});
+
+/* título: contador + espejo en tarjeta social + slug */
+function syncTitle(){
+  const t = document.getElementById('fTitle').textContent.trim();
+  const n = t.length;
+  const c = document.getElementById('titleCounter');
+  document.getElementById('titleCount').textContent = `${n} / 110`;
+  c.classList.toggle('over', n > 110);
+  c.querySelector('.bar i').style.width = Math.min(100, n / 110 * 100) + '%';
+  document.getElementById('socialHead').textContent = t;
+  document.getElementById('urlSlug').textContent = t.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,55) || '…';
+}
+function syncIg(){
+  const n = document.getElementById('fIg').textContent.trim().length;
+  document.getElementById('igCount').textContent = `${n} / 2200`;
+  document.getElementById('igBar').style.width = Math.min(100, n / 2200 * 100) + '%';
+}
+
+/* ══ chips ══ */
+function chipRow(rootId, items, cls, dirtyName, prefix = ''){
+  const root = document.getElementById(rootId);
+  const state = [...items];
+  function draw(){
+    root.querySelectorAll('.chip,.chipadd,.chipinput').forEach(e => e.remove());
+    state.forEach((c, i) => {
+      const s = document.createElement('span');
+      s.className = 'chip ' + cls;
+      s.innerHTML = `${prefix}${c} <button title="Quitar">×</button>`;
+      s.querySelector('button').onclick = () => {
+        state.splice(i, 1); dirty.add(dirtyName); refreshChanges(); draw(); syncHash();
+      };
+      root.appendChild(s);
+    });
+    const add = document.createElement('button');
+    add.className = 'chipadd';
+    add.innerHTML = '+ agregar';
+    add.onclick = () => {
+      const inp = document.createElement('input');
+      inp.className = 'chipinput';
+      inp.placeholder = 'Enter para agregar';
+      add.replaceWith(inp); inp.focus();
+      const done = () => { draw(); };
+      inp.onkeydown = e => {
+        if (e.key === 'Enter' && inp.value.trim()){
+          state.push(inp.value.trim().replace(/^#/, ''));
+          dirty.add(dirtyName); refreshChanges(); draw(); syncHash();
+        } else if (e.key === 'Escape') done();
+      };
+      inp.onblur = done;
+    };
+    root.appendChild(add);
+  }
+  draw();
+  return state;
+}
+chipRow('catRow', ['Actualidad','Nacionales','Justicia'], '', 'Categorías');
+chipRow('tagRow', ['Consejo Nacional de la Magistratura','Poder Judicial','Suprema Corte de Justicia','Santo Domingo'], 'tag', 'Etiquetas');
+const hashState = chipRow('hashRow', ['paginaunodo','republicadominicana','justicia','cnm','poderjudicial','santodomingo'], 'tag hash', 'Hashtags', '#');
+function syncHash(){
+  const el = document.getElementById('hashCount');
+  if (el) el.textContent = `${hashState.length} / 30 hashtags`;
+}
+
+/* ══ toolbar ══ */
+document.querySelectorAll('.toolbar [data-cmd]').forEach(b => {
+  b.addEventListener('mousedown', e => e.preventDefault());
+  b.addEventListener('click', () => {
+    const c = b.dataset.cmd;
+    if (c === 'bold') document.execCommand('bold');
+    else if (c === 'italic') document.execCommand('italic');
+    else if (c === 'ul') document.execCommand('insertUnorderedList');
+    else if (c === 'quote') document.execCommand('formatBlock', false, 'blockquote');
+    else if (c === 'undo') document.execCommand('undo');
+  });
+});
+
+/* ══ hero ══ */
+document.querySelector('.hero').addEventListener('click', () => {
+  dirty.add('Imagen'); refreshChanges();
+  toast('Imagen', 'En la app real abre el selector y re-renderiza con el template.');
+});
+
+/* ══ tabs ══ */
+const tabs = { wp: 'tab-wp', fb: 'tab-fb', ig: 'tab-ig' };
+function setTab(t){
+  document.querySelectorAll('.seg [data-t]').forEach(b =>
+    b.setAttribute('aria-selected', String(b.dataset.t === t)));
+  Object.entries(tabs).forEach(([k, id]) =>
+    document.getElementById(id).hidden = k !== t);
+}
+document.querySelectorAll('.seg [data-t]').forEach(b =>
+  b.addEventListener('click', () => setTab(b.dataset.t)));
+
+/* ══ guardar / cancelar ══ */
+function save(){
+  if (saveBtn.disabled) return;
+  toast(`Guardado (${dirty.size} campo${dirty.size === 1 ? '' : 's'})`, [...dirty].join(' · '));
+  dirty.clear(); refreshChanges();
+}
+saveBtn.addEventListener('click', save);
+document.getElementById('btnCancel').addEventListener('click', () => {
+  if (dirty.size) toast('Cambios sin guardar', 'En la app real, acá salta el aviso antes de descartar.');
+  else toast('Sin cambios', 'Volvés a la mesa de edición.');
+});
+document.querySelector('.back').addEventListener('click', () => {
+  if (dirty.size) toast('⚠ Tenés cambios sin guardar', 'La app real bloquea la salida hasta confirmar.');
+  else toast('Volviendo', 'Mesa de edición.');
+});
+
+/* ══ teclado ══ */
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){ e.preventDefault(); save(); return; }
+  const typing = e.target.isContentEditable || /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
+  if (typing) return;
+  if (['1','2','3'].includes(e.key)) setTab(['wp','fb','ig'][+e.key - 1]);
+});
+
+/* ══ toast ══ */
+function toast(t, sub){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span class="msg">${t}${sub ? `<b>${sub}</b>` : ''}</span>`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 200); }, 3200);
+}
+
+/* ══ anotaciones ══ */
+document.getElementById('btnAnnot').addEventListener('click', function(){
+  const on = document.body.classList.toggle('annot');
+  this.setAttribute('aria-pressed', String(on));
+});
+
+syncTitle(); syncIg(); syncHash();
+</script>
+</body>
+</html>
