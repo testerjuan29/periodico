@@ -37,66 +37,14 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.BACKOFFICE_INTERNAL_URL }}/api/image?path={{ encodeURIComponent($json.image_url) }}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file",
-              "outputPropertyName": "data"
-            }
-          }
-        }
-      },
-      "id": "c6a6e006-0006-4006-8006-000000000004",
-      "name": "Download Image",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [840, 300]
-    },
-    {
-      "parameters": {
         "language": "javaScript",
-        "jsCode": "const inp = $input.first();\nreturn {\n  json: inp.json,\n  binary: {\n    data: {\n      ...(inp.binary?.data || {}),\n      fileName: 'image.jpg',\n      fileExtension: 'jpg',\n      mimeType: 'image/jpeg',\n    }\n  }\n};"
+        "jsCode": "// Instagram descarga la imagen desde una URL publica. Usamos el propio\n// backoffice (BACKOFFICE_PUBLIC_URL debe ser https accesible desde internet).\n// Antes se subia a ImgBB, pero Meta dejo de poder descargar desde i.ibb.co.\nconst item = $input.first().json;\nconst base = String($env.BACKOFFICE_PUBLIC_URL || '').replace(/\\/$/, '');\nif (!/^https:\\/\\//.test(base)) {\n  throw new Error('BACKOFFICE_PUBLIC_URL debe ser una URL https publica para publicar en Instagram. Valor: ' + base);\n}\nconst url = base + '/api/image?path=' + encodeURIComponent(item.image_url);\nreturn { ...item, public_image_url: url };"
       },
-      "id": "c6a6e006-0006-4006-8006-000000000041",
-      "name": "Set Filename",
+      "id": "c6a6e006-0006-4006-8006-000000000006",
+      "name": "Build Public URL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [940, 300]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://api.imgbb.com/1/upload?key={{ $env.IMGBB_API_KEY }}&expiration=86400",
-        "sendBody": true,
-        "contentType": "multipart-form-data",
-        "bodyParameters": {
-          "parameters": [
-            { "parameterType": "formBinaryData", "name": "image", "inputDataFieldName": "data" }
-          ]
-        },
-        "options": {}
-      },
-      "id": "c6a6e006-0006-4006-8006-000000000005",
-      "name": "Upload to ImgBB",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1040, 300],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
-    },
-    {
-      "parameters": {
-        "language": "javaScript",
-        "jsCode": "const inp = $input.first();\n// ImgBB devuelve JSON: { data: { url, display_url, ... }, success, status }\nconst url = inp.json?.data?.url || inp.json?.data?.display_url;\nif (!url || !/^https?:\\/\\//.test(url)) {\n  throw new Error('ImgBB response missing url. Body: ' + JSON.stringify(inp.json));\n}\nreturn { public_image_url: url };"
-      },
-      "id": "c6a6e006-0006-4006-8006-000000000006",
-      "name": "Extract Public URL",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1240, 300]
     },
     {
       "parameters": {
@@ -117,7 +65,10 @@
       "name": "Create IG Container",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1440, 300]
+      "position": [1440, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -175,18 +126,9 @@
       "main": [[{ "node": "Build Caption", "type": "main", "index": 0 }]]
     },
     "Build Caption": {
-      "main": [[{ "node": "Download Image", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Build Public URL", "type": "main", "index": 0 }]]
     },
-    "Download Image": {
-      "main": [[{ "node": "Set Filename", "type": "main", "index": 0 }]]
-    },
-    "Set Filename": {
-      "main": [[{ "node": "Upload to ImgBB", "type": "main", "index": 0 }]]
-    },
-    "Upload to ImgBB": {
-      "main": [[{ "node": "Extract Public URL", "type": "main", "index": 0 }]]
-    },
-    "Extract Public URL": {
+    "Build Public URL": {
       "main": [[{ "node": "Create IG Container", "type": "main", "index": 0 }]]
     },
     "Create IG Container": {
