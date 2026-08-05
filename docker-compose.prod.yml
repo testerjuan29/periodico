@@ -148,8 +148,8 @@ services:
 
   image-renderer:
     build:
-      context: ./image-renderer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: image-renderer/Dockerfile
     container_name: pa_image_renderer
     restart: always
     environment:
@@ -181,12 +181,10 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       N8N_APPROVAL_WEBHOOK: http://n8n:5678/webhook/publication-approved
       N8N_GENERATE_WEBHOOK: http://n8n:5678/webhook/generate-content
-      IMAGE_OUTPUT_MOUNT: /image-output
       UPLOADS_MOUNT: /uploads
       IMAGE_RENDERER_URL: http://image-renderer:3001
       BACKOFFICE_INTERNAL_URL: http://backoffice:3000
     volumes:
-      - image_output:/image-output:ro
       - uploads:/uploads
     networks:
       - pa_net

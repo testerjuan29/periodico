@@ -212,7 +212,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://image-renderer:3001/render",
+        "url": "={{ $env.IMAGE_RENDERER_URL }}/render",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"template\": \"article\",\n  \"vars\": {\n    \"title\": {{ JSON.stringify($('Parse JSON').item.json.content.wp_title) }},\n    \"category\": {{ JSON.stringify(($('Parse JSON').item.json.content.wp_categories || [])[0] || 'Actualidad') }},\n    \"date\": {{ JSON.stringify($now.format('dd LLL yyyy')) }},\n    \"image_url\": {{ JSON.stringify($('Merge Image Branches').item.json.public_image_url) }}\n  },\n  \"width\": 1080,\n  \"height\": 1080\n}",

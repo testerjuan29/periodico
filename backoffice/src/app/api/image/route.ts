@@ -1,41 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
-import { basename, join, normalize } from 'node:path';
+import { basename } from 'node:path';
 
-// Sirve las imágenes generadas por image-renderer, montadas en /image-output (read-only).
+// Sirve las imágenes generadas por el image-renderer.
 // Espera ?path=/output/<uuid>.jpg (o .png, para publicaciones antiguas).
+//
+// Hace PROXY al renderer por HTTP en vez de leer un volumen compartido:
+// así funciona igual en docker-compose (red interna) y en plataformas
+// donde los servicios no comparten filesystem (Railway, Fly, etc.).
+// La interfaz pública no cambia — n8n y la UI siguen pidiendo ?path=.
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get('path');
   if (!raw) return NextResponse.json({ error: 'path required' }, { status: 400 });
 
-  const mount = process.env.IMAGE_OUTPUT_MOUNT ?? '/image-output';
-  const file = basename(raw);
-  const full = normalize(join(mount, file));
+  const renderer = process.env.IMAGE_RENDERER_URL ?? 'http://image-renderer:3001';
+  const file = basename(raw); // corta cualquier path traversal
 
-  if (!full.startsWith(normalize(mount))) {
-    return NextResponse.json({ error: 'invalid path' }, { status: 400 });
-  }
-
+  let upstream: Response;
   try {
-    await stat(full);
+    upstream = await fetch(`${renderer}/output/${encodeURIComponent(file)}`, {
+      // Las imágenes renderizadas son inmutables (uuid por archivo).
+      cache: 'no-store',
+    });
   } catch {
-    return NextResponse.json({ error: 'not found' }, { status: 404 });
+    return NextResponse.json({ error: 'renderer unreachable' }, { status: 502 });
   }
 
-  const MIME_BY_EXT: Record<string, string> = {
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    webp: 'image/webp',
-  };
-  const ext = file.split('.').pop()?.toLowerCase() ?? '';
-  const contentType = MIME_BY_EXT[ext] ?? 'application/octet-stream';
+  if (!upstream.ok || !upstream.body) {
+    return NextResponse.json({ error: 'not found' }, { status: upstream.status === 404 ? 404 : 502 });
+  }
 
-  const stream = createReadStream(full);
-  return new NextResponse(stream as unknown as ReadableStream, {
+  return new NextResponse(upstream.body, {
     headers: {
-      'Content-Type': contentType,
+      'Content-Type': upstream.headers.get('Content-Type') ?? 'image/jpeg',
       'Cache-Control': 'public, max-age=3600',
     },
   });

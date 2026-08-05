@@ -38,7 +38,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=http://backoffice:3000/api/image?path={{ encodeURIComponent($json.image_url) }}",
+        "url": "={{ $env.BACKOFFICE_INTERNAL_URL }}/api/image?path={{ encodeURIComponent($json.image_url) }}",
         "options": {
           "response": {
             "response": {

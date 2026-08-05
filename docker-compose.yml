@@ -112,8 +112,10 @@ services:
 
   image-renderer:
     build:
-      context: ./image-renderer
-      dockerfile: Dockerfile
+      # Contexto raíz: el Dockerfile hornea /templates dentro de la imagen
+      # (necesario en plataformas sin mounts, ej. Railway)
+      context: .
+      dockerfile: image-renderer/Dockerfile
     container_name: pa_image_renderer
     restart: unless-stopped
     environment:
@@ -149,7 +151,6 @@ services:
       N8N_APPROVAL_WEBHOOK: ${N8N_APPROVAL_WEBHOOK}
       # Webhook para reencolar la generación de una nota (workflow 09 → 03)
       N8N_GENERATE_WEBHOOK: http://n8n:5678/webhook/generate-content
-      IMAGE_OUTPUT_MOUNT: /image-output
       # Uploads de imágenes desde el editor — se re-renderean con el template
       UPLOADS_MOUNT: /uploads
       # URLs internas de Docker para que backoffice invoque al image-renderer
@@ -159,7 +160,6 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - image_output:/image-output:ro
       - uploads:/uploads
     networks:
       - pa_net

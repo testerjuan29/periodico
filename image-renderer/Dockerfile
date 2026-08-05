@@ -1,7 +1,12 @@
 # =====================================================
 #  image-renderer — microservicio Puppeteer
 #  Recibe: { template: "article", vars: {...}, width, height }
-#  Devuelve: { url: "/output/<uuid>.png" } (PNG en volumen)
+#  Devuelve: { url: "/output/<uuid>.jpg" }
+#
+#  CONTEXTO DE BUILD = RAÍZ DEL REPO (no este directorio):
+#  los templates viven en /templates del repo y se hornean en la
+#  imagen para que funcione en plataformas sin mounts (Railway).
+#  En compose: build.context: .  +  dockerfile: image-renderer/Dockerfile
 # =====================================================
 FROM node:20-bookworm-slim
 
@@ -32,14 +37,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY package.json ./
+COPY image-renderer/package.json ./
 RUN npm install --omit=optional --no-audit --no-fund
 
-COPY tsconfig.json ./
-COPY src ./src
+COPY image-renderer/tsconfig.json ./
+COPY image-renderer/src ./src
 RUN npx tsc
 
+# Templates horneados en la imagen. En dev el compose los monta encima
+# (mismo path) para iterar sin rebuild.
+COPY templates /templates
+
 ENV NODE_ENV=production
+ENV TEMPLATES_DIR=/templates
+ENV OUTPUT_DIR=/output
 EXPOSE 3001
 
 CMD ["node", "dist/index.js"]

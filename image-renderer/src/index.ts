@@ -1,9 +1,9 @@
 import Fastify from 'fastify';
 import puppeteer, { Browser } from 'puppeteer';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, createReadStream } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const TEMPLATES_DIR = process.env.TEMPLATES_DIR ?? '/templates';
@@ -34,6 +34,27 @@ interface RenderBody {
 }
 
 app.get('/health', async () => ({ ok: true }));
+
+// Sirve los archivos renderizados por HTTP. Existe para plataformas donde los
+// servicios NO comparten volumen (Railway, Fly, etc.): el backoffice hace
+// proxy a este endpoint en vez de leer el filesystem.
+app.get<{ Params: { file: string } }>('/output/:file', async (req, reply) => {
+  const file = basename(req.params.file); // corta cualquier path traversal
+  const full = join(OUTPUT_DIR, file);
+  if (!existsSync(full)) {
+    return reply.code(404).send({ error: 'not found' });
+  }
+  const MIME_BY_EXT: Record<string, string> = {
+    png: 'image/png',
+    webp: 'image/webp',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+  };
+  const ext = file.split('.').pop()?.toLowerCase() ?? '';
+  reply.header('Content-Type', MIME_BY_EXT[ext] ?? 'image/jpeg');
+  reply.header('Cache-Control', 'public, max-age=3600');
+  return reply.send(createReadStream(full));
+});
 
 app.post<{ Body: RenderBody }>('/render', async (req, reply) => {
   const { template, vars, width = 1080, height = 1080 } = req.body ?? ({} as RenderBody);
