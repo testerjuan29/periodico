@@ -138,6 +138,9 @@ services:
       WORDPRESS_CONFIG_EXTRA: |
         define( 'WP_HOME', 'https://${WP_DOMAIN}' );
         define( 'WP_SITEURL', 'https://${WP_DOMAIN}' );
+        // n8n publica via http://wordpress (red interna): sin esto, WP rechaza
+        // Application Passwords porque la conexion no es TLS.
+        define( 'WP_ENVIRONMENT_TYPE', 'local' );
         if ( isset( $$_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https' ) {
           $$_SERVER['HTTPS'] = 'on';
         }
