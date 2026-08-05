@@ -1,0 +1,16 @@
+# Reverse proxy de producción — HTTPS automático vía Let's Encrypt.
+# Los dominios llegan como variables de entorno desde docker-compose.prod.yml.
+# Requisito: los 3 registros A del DNS apuntando a la IP pública de la VM
+# ANTES de levantar (Caddy necesita resolver el dominio para emitir el cert).
+
+{$BACKOFFICE_DOMAIN} {
+	reverse_proxy backoffice:3000
+}
+
+{$N8N_DOMAIN} {
+	reverse_proxy n8n:5678
+}
+
+{$WP_DOMAIN} {
+	reverse_proxy wordpress:80
+}

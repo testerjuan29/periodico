@@ -1,0 +1,206 @@
+# ==============================================================================
+# Producción (Azure VM / cualquier VPS con Docker)
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Diferencias vs el compose de desarrollo:
+#   - Caddy como reverse proxy con HTTPS automático (Let's Encrypt)
+#   - NINGÚN servicio expone puertos al host salvo Caddy (80/443)
+#   - restart: always en todo
+#   - URLs públicas https via BACKOFFICE_DOMAIN / N8N_DOMAIN / WP_DOMAIN (.env)
+#
+# Requiere en el .env, además de lo de siempre:
+#   BACKOFFICE_DOMAIN=backoffice.tudominio.com
+#   N8N_DOMAIN=n8n.tudominio.com
+#   WP_DOMAIN=wp.tudominio.com
+#
+# Cuando el cliente autorice publicar en su WordPress real (paginauno.do):
+#   1. Cambiar abajo WP_INTERNAL_URL a https://paginauno.do y
+#      WP_APP_USER / WP_APP_PASSWORD a los de una Application Password suya.
+#   2. Eliminar los servicios `wordpress` y `wp_db` y el bloque de WP en Caddyfile.
+# ==============================================================================
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: pa_caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      BACKOFFICE_DOMAIN: ${BACKOFFICE_DOMAIN}
+      N8N_DOMAIN: ${N8N_DOMAIN}
+      WP_DOMAIN: ${WP_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - pa_net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: pa_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - pa_net
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: pa_n8n
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${N8N_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD}
+      # Detrás de Caddy: n8n genera sus URLs de webhook con el dominio público.
+      # Esto reemplaza a ngrok — Meta y Postmark apuntan acá directo.
+      N8N_HOST: ${N8N_DOMAIN}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://${N8N_DOMAIN}/
+      GENERIC_TIMEZONE: ${TZ}
+      TZ: ${TZ}
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      # WP de demo local. Para el WP real del cliente: https://paginauno.do
+      # + Application Password generada por ellos.
+      WP_INTERNAL_URL: http://wordpress
+      WP_APP_USER: ${WP_LOCAL_USER}
+      WP_APP_PASSWORD: ${WP_LOCAL_APP_PASSWORD}
+      WA_VERIFY_TOKEN: ${WA_VERIFY_TOKEN}
+      WA_PHONE_NUMBER_ID: ${WA_PHONE_NUMBER_ID}
+      WA_MEDIA_DOWNLOAD_ENABLED: ${WA_MEDIA_DOWNLOAD_ENABLED:-false}
+      BACKOFFICE_PUBLIC_URL: https://${BACKOFFICE_DOMAIN}
+      META_PAGE_ID: ${META_PAGE_ID}
+      META_PAGE_ACCESS_TOKEN: ${META_PAGE_ACCESS_TOKEN}
+      META_IG_USER_ID: ${META_IG_USER_ID}
+      IMGBB_API_KEY: ${IMGBB_API_KEY}
+      IMAGE_RENDERER_URL: http://image-renderer:3001
+      BACKOFFICE_INTERNAL_URL: http://backoffice:3000
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
+      - ./templates:/templates:ro
+    networks:
+      - pa_net
+
+  # WP de demo para enseñar el circuito al cliente sin tocar su sitio real.
+  # Ver el encabezado de este archivo para el paso a paginauno.do.
+  wp_db:
+    image: mariadb:11
+    container_name: pa_wp_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${WP_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: ${WP_DB_PASSWORD}
+    volumes:
+      - wp_db_data:/var/lib/mysql
+    networks:
+      - pa_net
+
+  wordpress:
+    image: wordpress:6.6-php8.3-apache
+    container_name: pa_wordpress
+    restart: always
+    depends_on:
+      - wp_db
+    environment:
+      WORDPRESS_DB_HOST: wp_db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: ${WP_DB_PASSWORD}
+      WORDPRESS_DB_NAME: wordpress
+      # Detrás del proxy HTTPS de Caddy. $$ escapa el $ para docker compose.
+      WORDPRESS_CONFIG_EXTRA: |
+        define( 'WP_HOME', 'https://${WP_DOMAIN}' );
+        define( 'WP_SITEURL', 'https://${WP_DOMAIN}' );
+        if ( isset( $$_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https' ) {
+          $$_SERVER['HTTPS'] = 'on';
+        }
+    volumes:
+      - wp_data:/var/www/html
+    networks:
+      - pa_net
+
+  image-renderer:
+    build:
+      context: ./image-renderer
+      dockerfile: Dockerfile
+    container_name: pa_image_renderer
+    restart: always
+    environment:
+      PORT: 3001
+      TEMPLATES_DIR: /templates
+      OUTPUT_DIR: /output
+    volumes:
+      - ./templates:/templates:ro
+      - image_output:/output
+    networks:
+      - pa_net
+
+  backoffice:
+    build:
+      context: ./backoffice
+      dockerfile: Dockerfile
+    container_name: pa_backoffice
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # https → la cookie de sesión pasa a `secure` automáticamente.
+      NEXTAUTH_URL: https://${BACKOFFICE_DOMAIN}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_USER: ${ADMIN_USER:-editor}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      N8N_APPROVAL_WEBHOOK: http://n8n:5678/webhook/publication-approved
+      N8N_GENERATE_WEBHOOK: http://n8n:5678/webhook/generate-content
+      IMAGE_OUTPUT_MOUNT: /image-output
+      UPLOADS_MOUNT: /uploads
+      IMAGE_RENDERER_URL: http://image-renderer:3001
+      BACKOFFICE_INTERNAL_URL: http://backoffice:3000
+    volumes:
+      - image_output:/image-output:ro
+      - uploads:/uploads
+    networks:
+      - pa_net
+
+volumes:
+  postgres_data:
+  n8n_data:
+  wp_db_data:
+  wp_data:
+  image_output:
+  uploads:
+  caddy_data:
+  caddy_config:
+
+networks:
+  pa_net:
+    driver: bridge
