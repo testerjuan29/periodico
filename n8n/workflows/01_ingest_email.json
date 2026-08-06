@@ -46,6 +46,75 @@
     },
     {
       "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Elige la mejor foto adjunta del correo (formato Postmark: base64 en Content).\n// Heuristicas anti-logo de firmas/banners en correos reenviados:\n//   1. preferir adjuntos reales (sin ContentID) sobre incrustados en el cuerpo\n//   2. descartar imagenes < 50KB (logos, pixeles de tracking)\n//   3. entre las que queden, la mas grande\nconst body = $('Webhook Email').first().json.body || {};\nconst pubId = $input.first().json.id;\nconst atts = Array.isArray(body.Attachments) ? body.Attachments : [];\nconst IMG = new Set(['image/jpeg', 'image/png', 'image/webp']);\nconst MIN_BYTES = 50 * 1024;\n\nconst mimeOf = (a) => String(a.ContentType || '').toLowerCase().split(';')[0].trim();\nconst sizeOf = (a) => Number(a.ContentLength) || Math.floor(String(a.Content || '').length * 3 / 4);\n\nconst cands = atts\n  .filter((a) => IMG.has(mimeOf(a)) && a.Content)\n  .map((a) => ({ ...a, _size: sizeOf(a) }))\n  .filter((a) => a._size >= MIN_BYTES);\n\nconst reales = cands.filter((a) => !a.ContentID);\nconst pool = reales.length ? reales : cands;\npool.sort((a, b) => b._size - a._size);\nconst best = pool[0] || null;\n\nreturn {\n  id: pubId,\n  hasImage: !!best,\n  contentBase64: best ? best.Content : null,\n  contentType: best ? mimeOf(best) : null,\n  originalName: best ? (best.Name || 'foto') : null,\n};"
+      },
+      "id": "b1a1e001-0001-4001-8001-000000000005",
+      "name": "Pick Best Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "has-email-image",
+              "leftValue": "={{ $json.hasImage }}",
+              "rightValue": "true",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1a1e001-0001-4001-8001-000000000006",
+      "name": "Has Email Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKOFFICE_INTERNAL_URL }}/api/upload/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Upload-Token", "value": "={{ $env.UPLOAD_TOKEN }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contentBase64: $json.contentBase64, contentType: $json.contentType, originalName: $json.originalName }) }}",
+        "options": {}
+      },
+      "id": "b1a1e001-0001-4001-8001-000000000007",
+      "name": "Upload Photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE publications\nSET source_media = '{{ JSON.stringify([{ type: 'image', url: $json.url, origin: 'email', name: $('Pick Best Image').item.json.originalName }]).replace(/'/g, \"''\") }}'::jsonb\nWHERE id = '{{ $('Pick Best Image').item.json.id }}'::uuid RETURNING id;",
+        "options": {}
+      },
+      "id": "b1a1e001-0001-4001-8001-000000000008",
+      "name": "Save Media",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1500, 200],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
+    },
+    {
+      "parameters": {
         "workflowId": { "__rl": true, "mode": "name", "value": "03 Generate Content" },
         "options": {}
       },
@@ -53,7 +122,7 @@
       "name": "Trigger Generate Content",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [900, 300]
+      "position": [1700, 300]
     }
   ],
   "connections": {
@@ -64,6 +133,21 @@
       "main": [[{ "node": "Insert Publication", "type": "main", "index": 0 }]]
     },
     "Insert Publication": {
+      "main": [[{ "node": "Pick Best Image", "type": "main", "index": 0 }]]
+    },
+    "Pick Best Image": {
+      "main": [[{ "node": "Has Email Image?", "type": "main", "index": 0 }]]
+    },
+    "Has Email Image?": {
+      "main": [
+        [{ "node": "Upload Photo", "type": "main", "index": 0 }],
+        [{ "node": "Trigger Generate Content", "type": "main", "index": 0 }]
+      ]
+    },
+    "Upload Photo": {
+      "main": [[{ "node": "Save Media", "type": "main", "index": 0 }]]
+    },
+    "Save Media": {
       "main": [[{ "node": "Trigger Generate Content", "type": "main", "index": 0 }]]
     }
   },

@@ -66,6 +66,8 @@ services:
       IMGBB_API_KEY: ${IMGBB_API_KEY}
       IMAGE_RENDERER_URL: http://image-renderer:3001
       BACKOFFICE_INTERNAL_URL: http://backoffice:3000
+      # Token compartido para subir fotos adjuntas al backoffice (workflow 01/03)
+      UPLOAD_TOKEN: ${UPLOAD_TOKEN}
     ports:
       - "5678:5678"
     volumes:
@@ -157,6 +159,8 @@ services:
       # y para que Puppeteer descargue las fotos subidas desde backoffice
       IMAGE_RENDERER_URL: http://image-renderer:3001
       BACKOFFICE_INTERNAL_URL: http://backoffice:3000
+      # Token que n8n presenta en POST /api/upload/ingest (fotos adjuntas)
+      UPLOAD_TOKEN: ${UPLOAD_TOKEN}
     ports:
       - "3000:3000"
     volumes:
