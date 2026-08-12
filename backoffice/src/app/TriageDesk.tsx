@@ -10,7 +10,7 @@ import { DashboardFilters } from './DashboardFilters';
 import { PreviewPane } from './PreviewPane';
 import { STATUS_RULE, STATUS_SHORT, SETTLED, type Status } from '@/lib/statusLabels';
 import { usePublicationActions, type PubAction } from '@/lib/usePublicationActions';
-import { cn } from '@/lib/utils';
+import { cn, isGenerating } from '@/lib/utils';
 
 type Publication = {
   id: string;
@@ -236,6 +236,9 @@ const RailRow = forwardRef<HTMLDivElement, RowProps>(function RailRow(
   const settled = SETTLED.has(status);
   const title = p.wpTitle ?? p.sourceSubject;
   const imgSrc = p.imageUrl ? `/api/image?path=${encodeURIComponent(p.imageUrl)}` : null;
+  // Recién llegada y sin contenido = la IA la está redactando ahora mismo.
+  // El polling del riel (10s) la convierte en tarjeta completa al terminar.
+  const generating = status === 'pending' && !p.wpTitle && isGenerating(p.receivedAt);
 
   return (
     // Tarjeta, no fila: la seleccionada flota con borde + sombra sobre el riel.
@@ -293,12 +296,17 @@ const RailRow = forwardRef<HTMLDivElement, RowProps>(function RailRow(
             busy && 'line-through decoration-ink/30'
           )}
         >
-          {title ?? (
+          {title ?? (generating ? (
+            <span className="inline-flex items-center gap-1.5 font-sans text-meta font-medium text-schedule">
+              <Loader2 className="h-3.5 w-3.5 flex-none animate-spin" />
+              Generando la nota con IA…
+            </span>
+          ) : (
             <span className="inline-flex items-center gap-1.5 font-sans text-meta font-medium text-pending">
               <AlertCircle className="h-3.5 w-3.5 flex-none" />
               Sin contenido generado
             </span>
-          )}
+          ))}
         </p>
 
         {/* Sin titular generado, el mensaje crudo es lo único que distingue
@@ -319,6 +327,13 @@ const RailRow = forwardRef<HTMLDivElement, RowProps>(function RailRow(
           loading="lazy"
           className="h-[46px] w-[46px] flex-none rounded-md object-cover ring-1 ring-divider"
         />
+      ) : generating ? (
+        <span
+          className="flex h-[46px] w-[46px] flex-none items-center justify-center rounded-md bg-schedule-soft text-schedule ring-1 ring-schedule/30"
+          aria-hidden
+        >
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </span>
       ) : title ? (
         <span className="h-[46px] w-[46px] flex-none rounded-md bg-subtle ring-1 ring-divider" aria-hidden />
       ) : (

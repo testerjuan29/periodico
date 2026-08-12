@@ -32,3 +32,13 @@ export function slugify(s: string): string {
     .replace(/-$/, '')
     .slice(0, 60);
 }
+
+// Una nota pendiente sin contenido y recién recibida está "generándose":
+// la IA tarda ~1-2 min en redactar. Pasada la ventana, lo más probable es que
+// la generación haya fallado y corresponde ofrecer el reintento.
+export const GENERATING_WINDOW_MS = 3 * 60 * 1000;
+
+export function isGenerating(receivedAt: string | Date | null | undefined): boolean {
+  if (!receivedAt) return false;
+  return Date.now() - new Date(receivedAt).getTime() < GENERATING_WINDOW_MS;
+}

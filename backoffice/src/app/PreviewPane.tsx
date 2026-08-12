@@ -14,7 +14,7 @@ import { Timestamp } from '@/components/Timestamp';
 import { PreviewTabs } from '@/app/publication/[id]/PreviewTabs';
 import { STATUS_LABEL, SETTLED, type Status } from '@/lib/statusLabels';
 import { usePublicationActions, type PubAction } from '@/lib/usePublicationActions';
-import { cn } from '@/lib/utils';
+import { cn, isGenerating } from '@/lib/utils';
 
 type Detail = {
   id: string;
@@ -177,7 +177,12 @@ export function PreviewPane({ id, onAct, settlingAction, emptyQueue }: Readonly<
             )}
           </>
         ) : (
-          <NotGenerated id={data.id} sourceText={data.sourceText} sourceSubject={data.sourceSubject} />
+          <NotGenerated
+            id={data.id}
+            sourceText={data.sourceText}
+            sourceSubject={data.sourceSubject}
+            receivedAt={data.receivedAt}
+          />
         )}
       </div>
 
@@ -339,9 +344,12 @@ function HelpRow({ label, children }: Readonly<{ label: string; children: React.
 }
 
 function NotGenerated({
-  id, sourceText, sourceSubject,
-}: Readonly<{ id: string; sourceText: string | null; sourceSubject: string | null }>) {
+  id, sourceText, sourceSubject, receivedAt,
+}: Readonly<{ id: string; sourceText: string | null; sourceSubject: string | null; receivedAt: string }>) {
   const [retryState, setRetryState] = useState<'idle' | 'sending' | 'queued'>('idle');
+  // Mientras la IA redacta (nota recién llegada) no tiene sentido ofrecer el
+  // reintento — el polling del panel (15s) trae el contenido al terminar.
+  const generating = isGenerating(receivedAt);
 
   const retry = async () => {
     setRetryState('sending');
@@ -361,6 +369,18 @@ function NotGenerated({
 
   return (
     <div className="mx-auto max-w-[760px]">
+      {generating ? (
+        <div className="mb-5 flex items-start gap-3 rounded-lg border border-schedule/30 bg-schedule-soft p-4">
+          <Loader2 className="mt-0.5 h-4 w-4 flex-none animate-spin text-schedule" />
+          <div>
+            <p className="text-meta font-semibold text-ink">La IA está redactando esta nota…</p>
+            <p className="mt-1 text-meta leading-relaxed text-ink/70">
+              Titular, cuerpo, versiones para redes e imagen tardan uno o dos minutos.
+              Este panel se actualiza solo al terminar — no hace falta hacer nada.
+            </p>
+          </div>
+        </div>
+      ) : (
       <div className="mb-5 flex items-start gap-3 rounded-lg border border-pending/30 bg-pending-soft p-4">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-pending" />
         <div>
@@ -384,6 +404,7 @@ function NotGenerated({
           </div>
         </div>
       </div>
+      )}
 
       <div className="rounded-lg border border-divider bg-surface p-6 shadow-card">
         <h3 className="mb-3 text-label font-semibold uppercase tracking-wider text-muted">
