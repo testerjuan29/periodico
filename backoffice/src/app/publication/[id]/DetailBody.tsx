@@ -24,6 +24,8 @@ type Props = {
   shareText: string | null;
   wpPostUrl: string | null;
   imageUrl: string | null;
+  /** URL pública del WordPress (env WP_PUBLIC_URL) — para dominios y placeholders. */
+  siteUrl: string;
   /** El panel de triage enlaza con ?edit=1 para saltar directo al editor. */
   initialEdit?: boolean;
 };
@@ -76,6 +78,7 @@ export function DetailBody(props: Readonly<Props>) {
             shareText:    props.shareText ?? '',
           }}
           imageUrl={props.imageUrl}
+          siteUrl={props.siteUrl}
           onDone={() => setEditing(false)}
         />
       ) : (
@@ -92,6 +95,7 @@ export function DetailBody(props: Readonly<Props>) {
           shareText={props.shareText}
           wpPostUrl={props.wpPostUrl}
           imageUrl={props.imageUrl}
+          siteUrl={props.siteUrl}
         />
       )}
     </div>

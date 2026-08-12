@@ -70,6 +70,7 @@ export default async function PublicationDetail({
             shareText={pub.shareText}
             wpPostUrl={pub.wpPostUrl}
             imageUrl={pub.imageUrl}
+            siteUrl={process.env.WP_PUBLIC_URL ?? ''}
             initialEdit={sp.edit === '1'}
           />
 

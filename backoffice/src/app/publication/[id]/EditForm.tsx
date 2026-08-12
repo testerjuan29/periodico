@@ -63,13 +63,25 @@ type Props = {
   id: string;
   initial: EditableFields;
   imageUrl: string | null;
+  /** URL pública del WordPress (env WP_PUBLIC_URL). */
+  siteUrl: string;
   onDone: () => void;
 };
+
+/** Host legible de una URL ('' si no hay o no parsea). */
+function hostOf(url: string): string {
+  try {
+    return url ? new URL(url).host : '';
+  } catch {
+    return '';
+  }
+}
 
 const arrayEq = (a: string[], b: string[]) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
 
-export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
+export function EditForm({ id, initial, imageUrl, siteUrl, onDone }: Readonly<Props>) {
+  const siteHost = hostOf(siteUrl);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [fields, setFields] = useState<EditableFields>(initial);
@@ -235,7 +247,7 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
               <span className="h-2 w-2 rounded-full bg-[#E5B84B]" aria-hidden />
               <span className="h-2 w-2 rounded-full bg-[#6FBF95]" aria-hidden />
               <span className="mx-auto min-w-0 max-w-[75%] truncate rounded-full bg-surface px-4 py-0.5 text-center font-mono text-label text-muted ring-1 ring-divider">
-                <span className="font-medium text-ink/70">paginauno.do</span>/{slug}
+                <span className="font-medium text-ink/70">{siteHost || 'sitio'}</span>/{slug}
               </span>
             </div>
 
@@ -369,7 +381,7 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
               className="mb-1 w-full px-4 text-meta leading-relaxed text-ink/90"
             />
             <p className="mb-3 px-4 text-meta leading-relaxed">
-              <span className="text-schedule">Leer más en https://paginauno.do/…</span>{' '}
+              <span className="text-schedule">Leer más en {siteUrl ? `${siteUrl}/…` : 'el enlace de la nota'}</span>{' '}
               <span className="ml-1.5 text-label text-muted">· se agrega solo al publicar</span>
             </p>
             {imgSrc && (
@@ -447,7 +459,7 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
               <div className="flex items-center justify-between border-b border-divider p-3.5">
                 <span className="flex items-center gap-2 text-meta font-semibold text-ink">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-ink font-display text-meta font-bold text-paper">𝕏</span>
-                  Post para Twitter/X
+                  <span>Post para Twitter/X</span>
                 </span>
                 <Button
                   variant="outline"

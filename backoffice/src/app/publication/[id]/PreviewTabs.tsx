@@ -21,10 +21,21 @@ type Props = {
   shareText?: string | null;
   /** Enlace real de la nota publicada — se anexa al copiar los textos de difusión. */
   wpPostUrl?: string | null;
+  /** URL pública del WordPress (env WP_PUBLIC_URL) — dominio y placeholders. */
+  siteUrl?: string;
   /** Controlado desde afuera cuando el panel de triage maneja los atajos 1/2/3. */
   value?: string;
   onValueChange?: (v: string) => void;
 };
+
+/** Host legible de una URL ('' si no hay o no parsea). */
+function hostOf(url: string | undefined): string {
+  try {
+    return url ? new URL(url).host : '';
+  } catch {
+    return '';
+  }
+}
 
 export function PreviewTabs(props: Readonly<Props>) {
   const imgSrc = props.imageUrl
@@ -112,7 +123,7 @@ function DifusionPreview({
           <div className="flex items-center justify-between border-b border-divider p-3.5">
             <span className="flex items-center gap-2 text-meta font-semibold text-ink">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-ink font-display text-meta font-bold text-paper">𝕏</span>
-              Post para Twitter/X
+              <span>Post para Twitter/X</span>
             </span>
             <Button variant="outline" size="sm" onClick={() => void copy(twCaption, 'Post de X')}>
               <Copy className="h-3.5 w-3.5" /> Copiar
@@ -153,9 +164,10 @@ function TabKbd({ children }: Readonly<{ children: React.ReactNode }>) {
 }
 
 function WordPressPreview({
-  wpTitle, wpBodyHtml, wpExcerpt, wpCategories, wpTags, imgSrc,
+  wpTitle, wpBodyHtml, wpExcerpt, wpCategories, wpTags, siteUrl, imgSrc,
 }: Props & { imgSrc: string | null }) {
   const slug = wpTitle ? slugify(wpTitle) : '';
+  const siteHost = hostOf(siteUrl);
   return (
     // Marco de navegador: deja claro que esto es "lo que se va a publicar",
     // no un formulario más. Medida editorial: máx 760px de columna.
@@ -165,7 +177,7 @@ function WordPressPreview({
         <span className="h-2 w-2 rounded-full bg-[#E5B84B]" aria-hidden />
         <span className="h-2 w-2 rounded-full bg-[#6FBF95]" aria-hidden />
         <span className="mx-auto min-w-0 max-w-[75%] truncate rounded-full bg-surface px-4 py-0.5 text-center font-mono text-label text-muted ring-1 ring-divider">
-          <span className="font-medium text-ink/70">paginauno.do</span>/{slug || '…'}
+          <span className="font-medium text-ink/70">{siteHost || 'sitio'}</span>/{slug || '…'}
         </span>
       </div>
       <article className="p-8">
@@ -224,7 +236,7 @@ function WordPressPreview({
   );
 }
 
-function FacebookPreview({ fbCaption, wpPostUrl, imgSrc }: Props & { imgSrc: string | null }) {
+function FacebookPreview({ fbCaption, wpPostUrl, siteUrl, imgSrc }: Props & { imgSrc: string | null }) {
   return (
     <div className="mx-auto max-w-lg overflow-hidden rounded-lg border border-divider bg-surface shadow-card">
       <div className="flex items-center gap-3 p-4">
@@ -237,7 +249,7 @@ function FacebookPreview({ fbCaption, wpPostUrl, imgSrc }: Props & { imgSrc: str
       <div className="whitespace-pre-wrap px-4 pb-1 text-meta leading-relaxed text-ink/90">
         {fbCaption ?? '—'}
       </div>
-      <ReadMoreLine wpPostUrl={wpPostUrl ?? null} />
+      <ReadMoreLine wpPostUrl={wpPostUrl ?? null} siteUrl={siteUrl} />
       {imgSrc && (
         <div className="flex justify-center border-t border-divider bg-subtle/40">
           <img src={imgSrc} alt="" className="max-h-[300px] w-auto object-contain" />
@@ -248,10 +260,11 @@ function FacebookPreview({ fbCaption, wpPostUrl, imgSrc }: Props & { imgSrc: str
 }
 
 /** Línea "Leer más en …" que los workflows anexan al publicar en FB e IG. */
-function ReadMoreLine({ wpPostUrl }: Readonly<{ wpPostUrl: string | null }>) {
+function ReadMoreLine({ wpPostUrl, siteUrl }: Readonly<{ wpPostUrl: string | null; siteUrl?: string }>) {
+  const placeholder = siteUrl ? `${siteUrl}/…` : 'el enlace de la nota';
   return (
     <div className="px-4 pb-3 text-meta leading-relaxed">
-      <span className="text-schedule">Leer más en {wpPostUrl ?? 'https://paginauno.do/…'}</span>{' '}
+      <span className="text-schedule">Leer más en {wpPostUrl ?? placeholder}</span>{' '}
       {!wpPostUrl && (
         <span className="ml-1.5 text-label text-muted">· el enlace real se agrega al publicar</span>
       )}
@@ -259,7 +272,7 @@ function ReadMoreLine({ wpPostUrl }: Readonly<{ wpPostUrl: string | null }>) {
   );
 }
 
-function InstagramPreview({ igCaption, hashtags, wpPostUrl, imgSrc }: Props & { imgSrc: string | null }) {
+function InstagramPreview({ igCaption, hashtags, wpPostUrl, siteUrl, imgSrc }: Props & { imgSrc: string | null }) {
   return (
     <div className="mx-auto max-w-md overflow-hidden rounded-lg border border-divider bg-surface shadow-card">
       <div className="flex items-center gap-3 border-b border-divider p-3">
@@ -274,7 +287,7 @@ function InstagramPreview({ igCaption, hashtags, wpPostUrl, imgSrc }: Props & { 
           <span className="font-semibold text-ink">paginauno.do</span> {igCaption ?? '—'}
         </div>
         <div className="-mx-4">
-          <ReadMoreLine wpPostUrl={wpPostUrl ?? null} />
+          <ReadMoreLine wpPostUrl={wpPostUrl ?? null} siteUrl={siteUrl} />
         </div>
         {hashtags?.length > 0 && (
           <div className="text-meta leading-relaxed text-schedule">

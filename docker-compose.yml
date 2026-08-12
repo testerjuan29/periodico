@@ -161,6 +161,9 @@ services:
       BACKOFFICE_INTERNAL_URL: http://backoffice:3000
       # Token que n8n presenta en POST /api/upload/ingest (fotos adjuntas)
       UPLOAD_TOKEN: ${UPLOAD_TOKEN}
+      # URL pública del sitio WordPress — la UI la usa para mostrar dominio y
+      # placeholders de enlaces (el enlace real de cada nota lo genera WP al publicar)
+      WP_PUBLIC_URL: http://localhost:8080
     ports:
       - "3000:3000"
     volumes:

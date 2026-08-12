@@ -191,6 +191,9 @@ services:
       BACKOFFICE_INTERNAL_URL: http://backoffice:3000
       # Token que n8n presenta en POST /api/upload/ingest (fotos adjuntas)
       UPLOAD_TOKEN: ${UPLOAD_TOKEN}
+      # URL pública del sitio WordPress (dominio y placeholders de enlaces en la UI).
+      # Al pasar al WP real del cliente: https://paginauno.do
+      WP_PUBLIC_URL: https://${WP_DOMAIN}
     volumes:
       - uploads:/uploads
     networks:
