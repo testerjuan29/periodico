@@ -27,7 +27,7 @@
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const item = $input.first().json;\nconst caption = String(item.fb_caption || '').trim();\nconst wpUrl = String(item.wp_post_url || '').trim();\nconst fullCaption = wpUrl ? `${caption}\\n\\n📰 Nota completa: ${wpUrl}` : caption;\nreturn { ...item, full_caption: fullCaption };"
+        "jsCode": "const item = $input.first().json;\nconst caption = String(item.fb_caption || '').trim();\nconst wpUrl = String(item.wp_post_url || '').trim();\n// Estilo editorial de PaginaUno: \"Leer más en <enlace>\" antes de cualquier hashtag\nconst fullCaption = wpUrl ? `${caption}\\n\\nLeer más en ${wpUrl}` : caption;\nreturn { ...item, full_caption: fullCaption };"
       },
       "id": "c5a5e005-0005-4005-8005-000000000003",
       "name": "Build Caption",

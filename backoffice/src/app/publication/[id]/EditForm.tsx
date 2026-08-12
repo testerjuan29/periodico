@@ -332,7 +332,7 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
                   </span>
                   <AutoTextarea
                     value={fields.seoKeyphrase}
-                    onChange={(v) => set('seoKeyphrase', v.replace(/\n/g, ' '))}
+                    onChange={(v) => set('seoKeyphrase', v.replaceAll('\n', ' '))}
                     disabled={pending}
                     maxLength={80}
                     placeholder="frase clave principal…"
@@ -366,8 +366,12 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
               onChange={(v) => set('fbCaption', v)}
               disabled={pending}
               placeholder="Caption de Facebook…"
-              className="mb-3 w-full px-4 text-meta leading-relaxed text-ink/90"
+              className="mb-1 w-full px-4 text-meta leading-relaxed text-ink/90"
             />
+            <p className="mb-3 px-4 text-meta leading-relaxed">
+              <span className="text-schedule">Leer más en https://paginauno.do/…</span>{' '}
+              <span className="ml-1.5 text-label text-muted">· se agrega solo al publicar</span>
+            </p>
             {imgSrc && (
               <div className="flex justify-center border-y border-divider bg-subtle/40">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -413,6 +417,10 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
                 className="mt-1 w-full text-meta leading-relaxed text-ink/90"
               />
               <Counter n={fields.igCaption.length} max={IG_MAX} hard />
+              <p className="mt-2 text-meta leading-relaxed">
+                <span className="text-schedule">Leer más en https://paginauno.do/…</span>
+                <span className="ml-1.5 text-label text-muted">· se agrega solo al publicar</span>
+              </p>
             </div>
             <div className="px-4 pb-4 pt-1">
               <ChipEditor

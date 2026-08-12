@@ -224,7 +224,7 @@ function WordPressPreview({
   );
 }
 
-function FacebookPreview({ fbCaption, imgSrc }: Props & { imgSrc: string | null }) {
+function FacebookPreview({ fbCaption, wpPostUrl, imgSrc }: Props & { imgSrc: string | null }) {
   return (
     <div className="mx-auto max-w-lg overflow-hidden rounded-lg border border-divider bg-surface shadow-card">
       <div className="flex items-center gap-3 p-4">
@@ -234,9 +234,10 @@ function FacebookPreview({ fbCaption, imgSrc }: Props & { imgSrc: string | null 
           <div className="text-label text-muted">Ahora · 🌐 Público</div>
         </div>
       </div>
-      <div className="whitespace-pre-wrap px-4 pb-3 text-meta leading-relaxed text-ink/90">
+      <div className="whitespace-pre-wrap px-4 pb-1 text-meta leading-relaxed text-ink/90">
         {fbCaption ?? '—'}
       </div>
+      <ReadMoreLine wpPostUrl={wpPostUrl ?? null} />
       {imgSrc && (
         <div className="flex justify-center border-t border-divider bg-subtle/40">
           <img src={imgSrc} alt="" className="max-h-[300px] w-auto object-contain" />
@@ -246,7 +247,19 @@ function FacebookPreview({ fbCaption, imgSrc }: Props & { imgSrc: string | null 
   );
 }
 
-function InstagramPreview({ igCaption, hashtags, imgSrc }: Props & { imgSrc: string | null }) {
+/** Línea "Leer más en …" que los workflows anexan al publicar en FB e IG. */
+function ReadMoreLine({ wpPostUrl }: Readonly<{ wpPostUrl: string | null }>) {
+  return (
+    <div className="px-4 pb-3 text-meta leading-relaxed">
+      <span className="text-schedule">Leer más en {wpPostUrl ?? 'https://paginauno.do/…'}</span>{' '}
+      {!wpPostUrl && (
+        <span className="ml-1.5 text-label text-muted">· el enlace real se agrega al publicar</span>
+      )}
+    </div>
+  );
+}
+
+function InstagramPreview({ igCaption, hashtags, wpPostUrl, imgSrc }: Props & { imgSrc: string | null }) {
   return (
     <div className="mx-auto max-w-md overflow-hidden rounded-lg border border-divider bg-surface shadow-card">
       <div className="flex items-center gap-3 border-b border-divider p-3">
@@ -260,8 +273,11 @@ function InstagramPreview({ igCaption, hashtags, imgSrc }: Props & { imgSrc: str
         <div className="whitespace-pre-wrap text-meta leading-relaxed text-ink/90">
           <span className="font-semibold text-ink">paginauno.do</span> {igCaption ?? '—'}
         </div>
+        <div className="-mx-4">
+          <ReadMoreLine wpPostUrl={wpPostUrl ?? null} />
+        </div>
         {hashtags?.length > 0 && (
-          <div className="mt-2 text-meta leading-relaxed text-schedule">
+          <div className="text-meta leading-relaxed text-schedule">
             {hashtags.map((h) => `#${h}`).join(' ')}
           </div>
         )}

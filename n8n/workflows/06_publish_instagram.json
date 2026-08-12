@@ -12,7 +12,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=SELECT id, ig_caption, hashtags, image_url\nFROM publications WHERE id = '{{ $json.publicationId || $json.id }}'::uuid;",
+        "query": "=SELECT id, ig_caption, hashtags, image_url, wp_post_url\nFROM publications WHERE id = '{{ $json.publicationId || $json.id }}'::uuid;",
         "options": {}
       },
       "id": "c6a6e006-0006-4006-8006-000000000002",
@@ -27,7 +27,7 @@
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const item = $input.first().json;\nconst caption = String(item.ig_caption || '').trim();\nconst hashtags = (item.hashtags || []).map(h => '#' + String(h).replace(/^#/, '').replace(/\\s+/g, '')).join(' ');\nconst fullCaption = hashtags ? `${caption}\\n\\n${hashtags}` : caption;\nreturn { ...item, full_caption: fullCaption };"
+        "jsCode": "const item = $input.first().json;\nconst caption = String(item.ig_caption || '').trim();\nconst wpUrl = String(item.wp_post_url || '').trim();\nconst hashtags = (item.hashtags || []).map(h => '#' + String(h).replace(/^#/, '').replace(/\\s+/g, '')).join(' ');\n// Estilo editorial de PaginaUno: caption, luego \"Leer más en <enlace>\", luego hashtags.\n// En IG el enlace no es clickeable, pero el medio lo incluye igual como referencia.\nlet fullCaption = caption;\nif (wpUrl) fullCaption += `\\n\\nLeer más en ${wpUrl}`;\nif (hashtags) fullCaption += `\\n\\n${hashtags}`;\nreturn { ...item, full_caption: fullCaption };"
       },
       "id": "c6a6e006-0006-4006-8006-000000000003",
       "name": "Build Caption",
