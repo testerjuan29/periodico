@@ -1,7 +1,9 @@
 'use client';
 
-import { FileText, Facebook, Instagram } from 'lucide-react';
+import { FileText, Facebook, Instagram, Share2, Copy, MessageCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { cn, slugify } from '@/lib/utils';
 
 type Props = {
@@ -14,6 +16,11 @@ type Props = {
   igCaption: string | null;
   hashtags: string[];
   imageUrl: string | null;
+  /** Textos de difusión (X + grupos). Opcionales: el triage puede no pasarlos. */
+  twCaption?: string | null;
+  shareText?: string | null;
+  /** Enlace real de la nota publicada — se anexa al copiar los textos de difusión. */
+  wpPostUrl?: string | null;
   /** Controlado desde afuera cuando el panel de triage maneja los atajos 1/2/3. */
   value?: string;
   onValueChange?: (v: string) => void;
@@ -23,6 +30,7 @@ export function PreviewTabs(props: Readonly<Props>) {
   const imgSrc = props.imageUrl
     ? `/api/image?path=${encodeURIComponent(props.imageUrl)}`
     : null;
+  const hasDifusion = Boolean(props.twCaption || props.shareText);
 
   return (
     <Tabs
@@ -49,6 +57,12 @@ export function PreviewTabs(props: Readonly<Props>) {
             Instagram
             <TabKbd>3</TabKbd>
           </TabsTrigger>
+          {hasDifusion && (
+            <TabsTrigger value="difusion">
+              <Share2 className="h-3.5 w-3.5" />
+              Difusión
+            </TabsTrigger>
+          )}
         </TabsList>
       </div>
 
@@ -63,7 +77,70 @@ export function PreviewTabs(props: Readonly<Props>) {
       <TabsContent value="instagram">
         <InstagramPreview {...props} imgSrc={imgSrc} />
       </TabsContent>
+
+      {hasDifusion && (
+        <TabsContent value="difusion">
+          <DifusionPreview
+            twCaption={props.twCaption ?? null}
+            shareText={props.shareText ?? null}
+            wpPostUrl={props.wpPostUrl ?? null}
+          />
+        </TabsContent>
+      )}
     </Tabs>
+  );
+}
+
+/** Textos de difusión listos para copiar; anexa el enlace real si la nota ya se publicó. */
+function DifusionPreview({
+  twCaption, shareText, wpPostUrl,
+}: Readonly<{ twCaption: string | null; shareText: string | null; wpPostUrl: string | null }>) {
+  const withLink = (text: string) => (wpPostUrl ? `${text}\n\n${wpPostUrl}` : text);
+  const copy = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(withLink(text));
+      toast.success(`${label} copiado${wpPostUrl ? ' (con el enlace de la nota)' : ''}`);
+    } catch {
+      toast.error('No se pudo copiar — copialo a mano');
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-[520px] space-y-5">
+      {twCaption && (
+        <div className="overflow-hidden rounded-lg border border-divider bg-surface shadow-card">
+          <div className="flex items-center justify-between border-b border-divider p-3.5">
+            <span className="flex items-center gap-2 text-meta font-semibold text-ink">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-ink font-display text-meta font-bold text-paper">𝕏</span>
+              Post para Twitter/X
+            </span>
+            <Button variant="outline" size="sm" onClick={() => void copy(twCaption, 'Post de X')}>
+              <Copy className="h-3.5 w-3.5" /> Copiar
+            </Button>
+          </div>
+          <p className="whitespace-pre-wrap p-4 text-meta leading-relaxed text-ink/90">{twCaption}</p>
+        </div>
+      )}
+      {shareText && (
+        <div className="overflow-hidden rounded-lg border border-divider bg-surface shadow-card">
+          <div className="flex items-center justify-between border-b border-divider p-3.5">
+            <span className="flex items-center gap-2 text-meta font-semibold text-ink">
+              <MessageCircle className="h-4 w-4 text-approve" />
+              Grupos de WhatsApp / Telegram
+            </span>
+            <Button variant="outline" size="sm" onClick={() => void copy(shareText, 'Texto para grupos')}>
+              <Copy className="h-3.5 w-3.5" /> Copiar
+            </Button>
+          </div>
+          <p className="whitespace-pre-wrap p-4 text-meta leading-relaxed text-ink/90">{shareText}</p>
+        </div>
+      )}
+      <p className="px-1 text-label text-muted">
+        {wpPostUrl
+          ? 'Al copiar se agrega automáticamente el enlace de la nota publicada.'
+          : 'Cuando la nota esté publicada en WordPress, el botón de copiar agregará el enlace automáticamente.'}
+      </p>
+    </div>
   );
 }
 

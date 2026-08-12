@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   Loader2, Save, ImageUp, FileText, Facebook, Instagram,
-  ThumbsUp, MessageSquare, Share2, Heart, MessageCircle, Send, X,
+  ThumbsUp, MessageSquare, Share2, Heart, MessageCircle, Send, X, Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -29,23 +29,35 @@ type EditableFields = {
   fbCaption: string;
   igCaption: string;
   hashtags: string[];
+  wpSubtitle: string;
+  seoKeyphrase: string;
+  seoKeywords: string[];
+  twCaption: string;
+  shareText: string;
 };
 
 const FIELD_LABEL: Record<keyof EditableFields, string> = {
   wpTitle:      'Titular',
-  wpExcerpt:    'Bajada',
+  wpSubtitle:   'Subtítulo',
+  wpExcerpt:    'Extracto',
   wpBodyHtml:   'Cuerpo',
   wpCategories: 'Categorías',
   wpTags:       'Etiquetas',
   fbCaption:    'Facebook',
   igCaption:    'Instagram',
   hashtags:     'Hashtags',
+  seoKeyphrase: 'Frase clave',
+  seoKeywords:  'Keywords SEO',
+  twCaption:    'Twitter/X',
+  shareText:    'Grupos',
 };
 
 // Línea editorial de PaginaUno: titular hasta 110 caracteres.
 const TITLE_SOFT_MAX = 110;
 const IG_MAX = 2200;
 const HASHTAG_MAX = 30;
+// X permite 280; dejamos 250 para que el enlace de la nota siempre quepa.
+const TW_SOFT_MAX = 250;
 
 type Props = {
   id: string;
@@ -141,8 +153,8 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
       const typing = t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
       if (typing) return;
       if (e.key === 'Escape') { cancel(); return; }
-      const i = ['1', '2', '3'].indexOf(e.key);
-      if (i >= 0) setTab(['wordpress', 'facebook', 'instagram'][i]);
+      const i = ['1', '2', '3', '4'].indexOf(e.key);
+      if (i >= 0) setTab(['wordpress', 'facebook', 'instagram', 'difusion'][i]);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -177,6 +189,15 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
     : null;
   const slug = slugify(fields.wpTitle) || '…';
 
+  const copyText = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copiado al portapapeles`);
+    } catch {
+      toast.error('No se pudo copiar — copialo a mano');
+    }
+  };
+
   return (
     <div>
       <input
@@ -199,6 +220,9 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
             </TabsTrigger>
             <TabsTrigger value="instagram">
               <Instagram className="h-3.5 w-3.5" /> Instagram <Kbd>3</Kbd>
+            </TabsTrigger>
+            <TabsTrigger value="difusion">
+              <Share2 className="h-3.5 w-3.5" /> Difusión <Kbd>4</Kbd>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -262,11 +286,23 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
               <Counter n={fields.wpTitle.length} max={TITLE_SOFT_MAX} suffix="· línea editorial" />
 
               <AutoTextarea
+                value={fields.wpSubtitle}
+                onChange={(v) => set('wpSubtitle', v)}
+                disabled={pending}
+                maxLength={220}
+                placeholder="Subtítulo editorial…"
+                className="mt-2 w-full font-display text-lead font-medium leading-snug text-ink/85"
+              />
+              <p className="mb-3 mt-1 text-micro text-muted">
+                Subtítulo — referencia para el equipo, no se envía a WordPress
+              </p>
+
+              <AutoTextarea
                 value={fields.wpExcerpt}
                 onChange={(v) => set('wpExcerpt', v)}
                 disabled={pending}
                 maxLength={300}
-                placeholder="Bajada editorial…"
+                placeholder="Extracto / resumen para SEO…"
                 className="mb-5 mt-2 w-full border-l-[3px] border-brand py-0.5 pl-4 font-display text-lead italic leading-relaxed text-ink/80"
               />
 
@@ -281,6 +317,32 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
                   label="Etiquetas"
                   value={fields.wpTags}
                   onChange={(v) => set('wpTags', v)}
+                  variant="tag"
+                  disabled={pending}
+                />
+              </div>
+
+              <div className="mt-5 border-t border-divider pt-5">
+                <p className="mb-3 text-label font-semibold uppercase tracking-wider text-muted">
+                  SEO
+                </p>
+                <div className="mb-3 flex flex-wrap items-baseline gap-2">
+                  <span className="text-label font-semibold uppercase tracking-wider text-muted">
+                    Frase clave
+                  </span>
+                  <AutoTextarea
+                    value={fields.seoKeyphrase}
+                    onChange={(v) => set('seoKeyphrase', v.replace(/\n/g, ' '))}
+                    disabled={pending}
+                    maxLength={80}
+                    placeholder="frase clave principal…"
+                    className="min-w-[220px] flex-1 rounded-full bg-approve-soft px-3 py-0.5 font-mono text-meta text-approve"
+                  />
+                </div>
+                <ChipEditor
+                  label="Keywords"
+                  value={fields.seoKeywords}
+                  onChange={(v) => set('seoKeywords', v)}
                   variant="tag"
                   disabled={pending}
                 />
@@ -367,6 +429,72 @@ export function EditForm({ id, initial, imageUrl, onDone }: Readonly<Props>) {
                 {fields.hashtags.length} / {HASHTAG_MAX} hashtags
               </p>
             </div>
+          </div>
+        </TabsContent>
+
+        {/* ══ DIFUSIÓN: textos para copiar a X y grupos (no se publican automático) ══ */}
+        <TabsContent value="difusion">
+          <div className="mx-auto max-w-[520px] space-y-6">
+            <div className="overflow-hidden rounded-lg border border-ink/10 bg-surface shadow-elevated">
+              <div className="flex items-center justify-between border-b border-divider p-3.5">
+                <span className="flex items-center gap-2 text-meta font-semibold text-ink">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-ink font-display text-meta font-bold text-paper">𝕏</span>
+                  Post para Twitter/X
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void copyText(fields.twCaption, 'Post de X')}
+                  disabled={!fields.twCaption}
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copiar
+                </Button>
+              </div>
+              <div className="p-4">
+                <AutoTextarea
+                  value={fields.twCaption}
+                  onChange={(v) => set('twCaption', v)}
+                  disabled={pending}
+                  maxLength={280}
+                  placeholder="Post para X…"
+                  className="w-full text-meta leading-relaxed text-ink/90"
+                />
+                <Counter n={fields.twCaption.length} max={TW_SOFT_MAX} suffix="· deja espacio para el enlace" />
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-ink/10 bg-surface shadow-elevated">
+              <div className="flex items-center justify-between border-b border-divider p-3.5">
+                <span className="flex items-center gap-2 text-meta font-semibold text-ink">
+                  <MessageCircle className="h-4 w-4 text-approve" />
+                  Grupos de WhatsApp / Telegram
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void copyText(fields.shareText, 'Texto para grupos')}
+                  disabled={!fields.shareText}
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copiar
+                </Button>
+              </div>
+              <div className="p-4">
+                <AutoTextarea
+                  value={fields.shareText}
+                  onChange={(v) => set('shareText', v)}
+                  disabled={pending}
+                  maxLength={600}
+                  placeholder="Texto motivante para los grupos…"
+                  className="w-full text-meta leading-relaxed text-ink/90"
+                />
+              </div>
+            </div>
+
+            <p className="flex items-start gap-2 px-1 text-label text-muted">
+              <Share2 className="mt-0.5 h-3 w-3 flex-none" />
+              Estos textos no se publican automáticamente: el editor los copia y los pega
+              en X y en los grupos. Agregá el enlace de la nota al final cuando ya esté publicada.
+            </p>
           </div>
         </TabsContent>
       </Tabs>

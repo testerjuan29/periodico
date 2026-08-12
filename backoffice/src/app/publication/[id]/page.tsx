@@ -63,6 +63,12 @@ export default async function PublicationDetail({
             fbCaption={pub.fbCaption}
             igCaption={pub.igCaption}
             hashtags={pub.hashtags}
+            wpSubtitle={pub.wpSubtitle}
+            seoKeyphrase={pub.seoKeyphrase}
+            seoKeywords={pub.seoKeywords}
+            twCaption={pub.twCaption}
+            shareText={pub.shareText}
+            wpPostUrl={pub.wpPostUrl}
             imageUrl={pub.imageUrl}
             initialEdit={sp.edit === '1'}
           />

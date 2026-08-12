@@ -36,6 +36,11 @@ CREATE TABLE IF NOT EXISTS publications (
   fb_caption      TEXT,
   ig_caption      TEXT,
   hashtags        TEXT[],         -- hashtags SOLO para Instagram
+  wp_subtitle     TEXT,           -- bajada editorial (solo backoffice, no va a WP)
+  seo_keyphrase   TEXT,           -- frase clave principal (estilo Yoast)
+  seo_keywords    TEXT[],         -- palabras clave SEO
+  tw_caption      TEXT,           -- post para Twitter/X (copiar manual)
+  share_text      TEXT,           -- texto para grupos de WhatsApp/Telegram (copiar manual)
 
   -- Imagen generada
   image_url       TEXT,

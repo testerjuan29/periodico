@@ -29,6 +29,11 @@ model Publication {
   fbCaption      String?   @map("fb_caption")
   igCaption      String?   @map("ig_caption")
   hashtags       String[]
+  wpSubtitle     String?   @map("wp_subtitle")
+  seoKeyphrase   String?   @map("seo_keyphrase")
+  seoKeywords    String[]  @map("seo_keywords")
+  twCaption      String?   @map("tw_caption")
+  shareText      String?   @map("share_text")
 
   imageUrl       String?   @map("image_url")
   imageMeta      Json?     @map("image_meta")

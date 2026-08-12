@@ -17,6 +17,12 @@ type Props = {
   fbCaption: string | null;
   igCaption: string | null;
   hashtags: string[];
+  wpSubtitle: string | null;
+  seoKeyphrase: string | null;
+  seoKeywords: string[];
+  twCaption: string | null;
+  shareText: string | null;
+  wpPostUrl: string | null;
   imageUrl: string | null;
   /** El panel de triage enlaza con ?edit=1 para saltar directo al editor. */
   initialEdit?: boolean;
@@ -63,6 +69,11 @@ export function DetailBody(props: Readonly<Props>) {
             fbCaption:    props.fbCaption ?? '',
             igCaption:    props.igCaption ?? '',
             hashtags:     props.hashtags,
+            wpSubtitle:   props.wpSubtitle ?? '',
+            seoKeyphrase: props.seoKeyphrase ?? '',
+            seoKeywords:  props.seoKeywords,
+            twCaption:    props.twCaption ?? '',
+            shareText:    props.shareText ?? '',
           }}
           imageUrl={props.imageUrl}
           onDone={() => setEditing(false)}
@@ -77,6 +88,9 @@ export function DetailBody(props: Readonly<Props>) {
           fbCaption={props.fbCaption}
           igCaption={props.igCaption}
           hashtags={props.hashtags}
+          twCaption={props.twCaption}
+          shareText={props.shareText}
+          wpPostUrl={props.wpPostUrl}
           imageUrl={props.imageUrl}
         />
       )}

@@ -11,6 +11,11 @@ const patchSchema = z.object({
   fbCaption:    z.string().optional(),
   igCaption:    z.string().optional(),
   hashtags:     z.array(z.string()).optional(),
+  wpSubtitle:   z.string().optional(),
+  seoKeyphrase: z.string().optional(),
+  seoKeywords:  z.array(z.string()).optional(),
+  twCaption:    z.string().optional(),
+  shareText:    z.string().optional(),
 });
 
 // Alimenta el panel de preview del escritorio de triage sin navegar de página.
@@ -23,6 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       sourceType: true, sourceSender: true, sourceSubject: true, sourceText: true,
       wpTitle: true, wpBodyHtml: true, wpExcerpt: true, wpCategories: true, wpTags: true,
       fbCaption: true, igCaption: true, hashtags: true,
+      wpSubtitle: true, seoKeyphrase: true, seoKeywords: true, twCaption: true, shareText: true,
       imageUrl: true, receivedAt: true, scheduledAt: true,
       wpPostUrl: true, fbPostUrl: true, igPostUrl: true,
     },
