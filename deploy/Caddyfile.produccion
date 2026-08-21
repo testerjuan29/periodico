@@ -1,0 +1,13 @@
+# Reverse proxy de PRODUCCIÓN REAL — sin WordPress demo (el cliente usa el suyo).
+# HTTPS automático vía Let's Encrypt. Los dominios llegan como variables de
+# entorno desde docker-compose.produccion.yml.
+# Requisito: los registros A del DNS apuntando a la IP pública de la VM
+# ANTES de levantar (Caddy necesita resolver el dominio para emitir el cert).
+
+{$BACKOFFICE_DOMAIN} {
+	reverse_proxy backoffice:3000
+}
+
+{$N8N_DOMAIN} {
+	reverse_proxy n8n:5678
+}

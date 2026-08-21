@@ -57,7 +57,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://wordpress/?rest_route=/wp/v2/media",
+        "url": "={{ ($env.WP_INTERNAL_URL || 'http://wordpress') + '/?rest_route=/wp/v2/media' }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
