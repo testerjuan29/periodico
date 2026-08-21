@@ -43,3 +43,6 @@ noticias/
 
 # Build artifacts
 *.tsbuildinfo
+
+# Cualquier variante de .env (respaldo de prod, etc.) jamas al repo
+*.env
