@@ -69,8 +69,8 @@
               "operator": { "type": "string", "operation": "equals" }
             },
             {
-              "id": "has-image-url",
-              "leftValue": "={{ $json.source_media?.[0]?.url }}",
+              "id": "has-wa-media-id",
+              "leftValue": "={{ $json.source_media?.[0]?.id }}",
               "rightValue": "",
               "operator": { "type": "string", "operation": "notEmpty" }
             },
@@ -139,10 +139,10 @@
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "// Normaliza filename para que Litterbox lo acepte (ext .jpg + mime image/jpeg)\nconst inp = $input.first();\nreturn {\n  json: inp.json,\n  binary: {\n    data: {\n      ...(inp.binary?.data || {}),\n      fileName: 'wa-image.jpg',\n      fileExtension: 'jpg',\n      mimeType: 'image/jpeg',\n    }\n  }\n};"
+        "jsCode": "// Convierte la foto descargada de WhatsApp a base64 para subirla al\n// backoffice (/api/upload/ingest) — mismo mecanismo que las fotos por correo.\n// (Antes iba a Litterbox, servicio externo que dejó de funcionar.)\nconst buf = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst bin = $input.first().binary?.data || {};\nconst mime = String(bin.mimeType || 'image/jpeg').split(';')[0].trim();\nreturn {\n  contentBase64: buf.toString('base64'),\n  contentType: mime,\n  originalName: 'whatsapp-' + ($('Load Publication').first().json.id || 'foto'),\n};"
       },
       "id": "b3a3e003-0003-4003-8003-000000000042",
-      "name": "Set JPG Filename",
+      "name": "Prepare Upload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1180, 200]
@@ -150,31 +150,49 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://litterbox.catbox.moe/resources/internals/api.php",
-        "sendBody": true,
-        "contentType": "multipart-form-data",
-        "bodyParameters": {
+        "url": "={{ $env.BACKOFFICE_INTERNAL_URL }}/api/upload/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
           "parameters": [
-            { "name": "reqtype", "value": "fileupload" },
-            { "name": "time", "value": "24h" },
-            { "parameterType": "formBinaryData", "name": "fileToUpload", "inputDataFieldName": "data" }
+            { "name": "X-Upload-Token", "value": "={{ $env.UPLOAD_TOKEN }}" }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contentBase64: $json.contentBase64, contentType: $json.contentType, originalName: $json.originalName }) }}",
         "options": {}
       },
       "id": "b3a3e003-0003-4003-8003-000000000043",
-      "name": "Upload to Litterbox",
+      "name": "Upload WA Photo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1340, 200]
+      "position": [1340, 200],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE publications\nSET source_media = '{{ JSON.stringify([{ type: 'image', url: $json.url, origin: 'whatsapp', wa_media_id: $('Load Publication').item.json.source_media?.[0]?.id || null }]).replace(/'/g, \"''\") }}'::jsonb\nWHERE id = '{{ $('Load Publication').item.json.id }}'::uuid RETURNING id;",
+        "options": {}
+      },
+      "id": "b3a3e003-0003-4003-8003-000000000048",
+      "name": "Save WA Media",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1500, 120],
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
+      }
     },
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "// Extrae la URL pública que litterbox devuelve como texto plano.\n// Preserva los campos del Load Publication para que los nodos siguientes tengan acceso.\nconst inp = $input.first();\nlet body;\nif (typeof inp.json === 'string') body = inp.json;\nelse if (inp.json?.data) body = String(inp.json.data);\nelse if (inp.json?.text) body = String(inp.json.text);\nelse body = JSON.stringify(inp.json);\nconst url = body.trim();\nif (!/^https?:\\/\\//.test(url)) {\n  throw new Error('Litterbox response missing url. Body: ' + body);\n}\nconst pub = $('Load Publication').first().json;\nreturn {\n  ...pub,\n  public_image_url: url,\n};"
+        "jsCode": "// La foto ya vive en /uploads — el renderer la lee por la red interna,\n// igual que en la rama de correo. Al quedar persistida en source_media,\n// las regeneraciones futuras entran por 'Has Uploaded Image?' directo.\nconst pub = $('Load Publication').first().json;\nconst up = $('Upload WA Photo').first().json;\nconst base = String($env.BACKOFFICE_INTERNAL_URL || 'http://backoffice:3000').replace(/\\/$/, '');\nreturn {\n  ...pub,\n  public_image_url: base + up.url,\n};"
       },
       "id": "b3a3e003-0003-4003-8003-000000000044",
-      "name": "Extract Public URL",
+      "name": "Set WA Public URL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1500, 200]
@@ -349,15 +367,18 @@
       "main": [[{ "node": "Download WA Image", "type": "main", "index": 0 }]]
     },
     "Download WA Image": {
-      "main": [[{ "node": "Set JPG Filename", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Prepare Upload", "type": "main", "index": 0 }]]
     },
-    "Set JPG Filename": {
-      "main": [[{ "node": "Upload to Litterbox", "type": "main", "index": 0 }]]
+    "Prepare Upload": {
+      "main": [[{ "node": "Upload WA Photo", "type": "main", "index": 0 }]]
     },
-    "Upload to Litterbox": {
-      "main": [[{ "node": "Extract Public URL", "type": "main", "index": 0 }]]
+    "Upload WA Photo": {
+      "main": [[{ "node": "Save WA Media", "type": "main", "index": 0 }]]
     },
-    "Extract Public URL": {
+    "Save WA Media": {
+      "main": [[{ "node": "Set WA Public URL", "type": "main", "index": 0 }]]
+    },
+    "Set WA Public URL": {
       "main": [[{ "node": "Merge Image Branches", "type": "main", "index": 0 }]]
     },
     "Set Placeholder URL": {
