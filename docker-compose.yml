@@ -68,6 +68,10 @@ services:
       BACKOFFICE_INTERNAL_URL: http://backoffice:3000
       # Token compartido para subir fotos adjuntas al backoffice (workflow 01/03)
       UPLOAD_TOKEN: ${UPLOAD_TOKEN}
+      # Formato de imagen por defecto (mismas vars que lee el backoffice)
+      IMAGE_DEFAULT_TEMPLATE: ${IMAGE_DEFAULT_TEMPLATE:-article}
+      IMAGE_DEFAULT_WIDTH: ${IMAGE_DEFAULT_WIDTH:-1080}
+      IMAGE_DEFAULT_HEIGHT: ${IMAGE_DEFAULT_HEIGHT:-1350}
     ports:
       - "5678:5678"
     volumes:
@@ -164,6 +168,11 @@ services:
       # URL pública del sitio WordPress — la UI la usa para mostrar dominio y
       # placeholders de enlaces (el enlace real de cada nota lo genera WP al publicar)
       WP_PUBLIC_URL: http://localhost:8080
+      # Formatos de imagen: default (mismas vars que n8n) + catálogo opcional JSON
+      IMAGE_DEFAULT_TEMPLATE: ${IMAGE_DEFAULT_TEMPLATE:-article}
+      IMAGE_DEFAULT_WIDTH: ${IMAGE_DEFAULT_WIDTH:-1080}
+      IMAGE_DEFAULT_HEIGHT: ${IMAGE_DEFAULT_HEIGHT:-1350}
+      IMAGE_FORMATS: ${IMAGE_FORMATS:-}
     ports:
       - "3000:3000"
     volumes:

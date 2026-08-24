@@ -266,7 +266,7 @@
         "url": "={{ $env.IMAGE_RENDERER_URL }}/render",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"template\": \"article\",\n  \"vars\": {\n    \"title\": {{ JSON.stringify($('Parse JSON').item.json.content.wp_title) }},\n    \"category\": {{ JSON.stringify(($('Parse JSON').item.json.content.wp_categories || [])[0] || 'Actualidad') }},\n    \"date\": {{ JSON.stringify($now.format('dd LLL yyyy')) }},\n    \"image_url\": {{ JSON.stringify($('Merge Image Branches').item.json.public_image_url) }}\n  },\n  \"width\": 1080,\n  \"height\": 1350\n}",
+        "jsonBody": "={\n  \"template\": {{ JSON.stringify($env.IMAGE_DEFAULT_TEMPLATE || 'article') }},\n  \"vars\": {\n    \"title\": {{ JSON.stringify($('Parse JSON').item.json.content.wp_title) }},\n    \"category\": {{ JSON.stringify(($('Parse JSON').item.json.content.wp_categories || [])[0] || 'Actualidad') }},\n    \"date\": {{ JSON.stringify($now.format('dd LLL yyyy')) }},\n    \"image_url\": {{ JSON.stringify($('Merge Image Branches').item.json.public_image_url) }}\n  },\n  \"width\": {{ Number($env.IMAGE_DEFAULT_WIDTH) || 1080 }},\n  \"height\": {{ Number($env.IMAGE_DEFAULT_HEIGHT) || 1350 }}\n}",
         "options": {}
       },
       "id": "b3a3e003-0003-4003-8003-000000000005",

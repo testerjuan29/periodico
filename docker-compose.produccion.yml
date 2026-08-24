@@ -92,6 +92,10 @@ services:
       IMAGE_RENDERER_URL: http://image-renderer:3001
       BACKOFFICE_INTERNAL_URL: http://backoffice:3000
       UPLOAD_TOKEN: ${UPLOAD_TOKEN}
+      # Formato de imagen por defecto (mismas vars que lee el backoffice)
+      IMAGE_DEFAULT_TEMPLATE: ${IMAGE_DEFAULT_TEMPLATE:-article}
+      IMAGE_DEFAULT_WIDTH: ${IMAGE_DEFAULT_WIDTH:-1080}
+      IMAGE_DEFAULT_HEIGHT: ${IMAGE_DEFAULT_HEIGHT:-1350}
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n/workflows:/workflows:ro
@@ -139,6 +143,11 @@ services:
       UPLOAD_TOKEN: ${UPLOAD_TOKEN}
       # URL pública del WP real — dominio y placeholders de enlaces en la UI
       WP_PUBLIC_URL: ${WP_URL}
+      # Formatos de imagen: default (mismas vars que n8n) + catálogo opcional JSON
+      IMAGE_DEFAULT_TEMPLATE: ${IMAGE_DEFAULT_TEMPLATE:-article}
+      IMAGE_DEFAULT_WIDTH: ${IMAGE_DEFAULT_WIDTH:-1080}
+      IMAGE_DEFAULT_HEIGHT: ${IMAGE_DEFAULT_HEIGHT:-1350}
+      IMAGE_FORMATS: ${IMAGE_FORMATS:-}
     volumes:
       - uploads:/uploads
     networks:

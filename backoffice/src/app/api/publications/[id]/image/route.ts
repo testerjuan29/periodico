@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/currentUser';
+import { resolveFormat } from '@/lib/imageFormats';
 
 const NOT_EDITABLE = new Set(['published', 'publishing', 'rejected', 'failed']);
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -40,6 +41,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const form = await req.formData();
   const file = form.get('file');
+  // Formato opcional (key del catálogo de imageFormats); sin él, el default.
+  const format = resolveFormat(typeof form.get('format') === 'string' ? String(form.get('format')) : null);
   if (!(file instanceof File)) {
     return NextResponse.json({ error: 'file requerido' }, { status: 400 });
   }
@@ -70,16 +73,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      template: 'article',
+      template: format.template,
       vars: {
         title:     pub.wpTitle ?? '',
         category:  pub.wpCategories[0] ?? 'Actualidad',
         date:      formatDate(pub.receivedAt),
         image_url: heroUrl,
       },
-      // Formato 4:5 vertical — la plantilla oficial del cliente (1080x1350)
-      width: 1080,
-      height: 1350,
+      width: format.width,
+      height: format.height,
     }),
   });
 
