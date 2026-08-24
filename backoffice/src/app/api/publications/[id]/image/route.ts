@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
+import { getSessionUser } from '@/lib/currentUser';
 
 const NOT_EDITABLE = new Set(['published', 'publishing', 'rejected', 'failed']);
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const rendered = (await renderRes.json()) as { id: string; path: string; url: string };
 
   // 3. Update publication + audit
-  const actor = process.env.ADMIN_EMAIL ?? 'admin';
+  const actor = (await getSessionUser())?.email ?? 'sistema';
   await prisma.publication.update({
     where: { id },
     data: { imageUrl: rendered.url },

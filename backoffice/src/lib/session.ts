@@ -45,31 +45,49 @@ function equal(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-export async function createSessionToken(secret: string, user: string): Promise<string> {
+/** Identidad que viaja dentro del token — un admin gestiona usuarios, los
+ *  editores operan publicaciones. */
+export type SessionUser = {
+  uid: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'editor';
+};
+
+export async function createSessionToken(secret: string, user: SessionUser): Promise<string> {
   const payload = b64url(enc.encode(JSON.stringify({
-    u: user,
+    ...user,
     exp: Date.now() + SESSION_MAX_AGE_S * 1000,
   })));
   const sig = b64url(await hmac(secret, payload));
   return `${payload}.${sig}`;
 }
 
-export async function verifySessionToken(secret: string, token: string): Promise<boolean> {
+/** Devuelve la identidad del token si la firma y la expiración son válidas.
+ *  Tokens del formato viejo (single-user, sin uid) quedan inválidos a propósito
+ *  — fuerza un re-login único tras el deploy de multi-usuario. */
+export async function readSessionToken(secret: string, token: string): Promise<SessionUser | null> {
   const dot = token.lastIndexOf('.');
-  if (dot < 0) return false;
+  if (dot < 0) return null;
   const payload = token.slice(0, dot);
   const sig = b64urlDecode(token.slice(dot + 1));
-  if (!sig) return false;
+  if (!sig) return null;
 
   const expected = await hmac(secret, payload);
-  if (!equal(expected, sig)) return false;
+  if (!equal(expected, sig)) return null;
 
   const raw = b64urlDecode(payload);
-  if (!raw) return false;
+  if (!raw) return null;
   try {
-    const { exp } = JSON.parse(new TextDecoder().decode(raw)) as { exp?: unknown };
-    return typeof exp === 'number' && Date.now() < exp;
+    const data = JSON.parse(new TextDecoder().decode(raw)) as Partial<SessionUser> & { exp?: unknown };
+    if (typeof data.exp !== 'number' || Date.now() >= data.exp) return null;
+    if (!data.uid || !data.email || (data.role !== 'admin' && data.role !== 'editor')) return null;
+    return { uid: data.uid, email: data.email, name: data.name ?? data.email, role: data.role };
   } catch {
-    return false;
+    return null;
   }
+}
+
+export async function verifySessionToken(secret: string, token: string): Promise<boolean> {
+  return (await readSessionToken(secret, token)) !== null;
 }

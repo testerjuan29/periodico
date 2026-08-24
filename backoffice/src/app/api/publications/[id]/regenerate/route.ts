@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getSessionUser } from '@/lib/currentUser';
 
 // Reencola una nota en el workflow de generación (03) vía el webhook del
 // workflow 09. Existe para rescatar notas que se ingirieron pero cuya
@@ -50,7 +51,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   await prisma.auditLog.create({
     data: {
       publicationId: id,
-      actorEmail: process.env.ADMIN_EMAIL ?? 'admin',
+      actorEmail: (await getSessionUser())?.email ?? 'sistema',
       action: 'regenerate',
     },
   });

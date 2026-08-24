@@ -100,12 +100,18 @@ CREATE TRIGGER trg_publications_updated_at
 -- =====================================================
 --  Usuarios del backoffice (login por magic link)
 -- =====================================================
+-- Usuarios del backoffice: un admin (gestiona usuarios) y varios editores
+-- (operan publicaciones). El primer login con las credenciales del .env
+-- crea el admin automáticamente (bootstrap en /api/auth/login).
 CREATE TABLE IF NOT EXISTS users (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email      TEXT UNIQUE NOT NULL,
-  name       TEXT,
-  role       TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin','approver','viewer')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email         TEXT UNIQUE NOT NULL,
+  name          TEXT,
+  role          TEXT NOT NULL DEFAULT 'editor' CHECK (role IN ('admin','editor')),
+  password_hash TEXT,
+  active        BOOLEAN NOT NULL DEFAULT TRUE,
+  last_login_at TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- =====================================================

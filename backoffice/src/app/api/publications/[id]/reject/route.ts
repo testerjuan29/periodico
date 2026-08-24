@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getSessionUser } from '@/lib/currentUser';
 
 // Estados desde los cuales sí se puede rechazar (antes de publicar de verdad).
 const REJECTABLE = ['pending', 'approved', 'scheduled'];
@@ -8,7 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const { reason } = (await req.json().catch(() => ({}))) as { reason?: string };
 
-  const actor = process.env.ADMIN_EMAIL ?? 'admin';
+  const actor = (await getSessionUser())?.email ?? 'sistema';
 
   // Solo se puede rechazar si aún no se publicó (ni está publicando).
   const result = await prisma.publication.updateMany({

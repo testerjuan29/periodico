@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SESSION_COOKIE, verifySessionToken } from '@/lib/session';
+import { readSessionToken, SESSION_COOKIE } from '@/lib/session';
 
 /**
  * Todo requiere sesión salvo:
@@ -8,16 +8,24 @@ import { SESSION_COOKIE, verifySessionToken } from '@/lib/session';
  *    imagen renderizada) y Puppeteer (re-render del template) desde la red
  *    interna de Docker, SIN cookies. Cerrarlos rompería la publicación.
  *    Solo sirven imágenes, exposición aceptable.
+ *
+ * Roles: /usuarios y /api/users son SOLO del admin; el resto lo operan todos.
  */
 
 const PUBLIC_PATHS = new Set(['/login', '/api/auth/login']);
+
+function isAdminOnly(pathname: string): boolean {
+  return pathname === '/usuarios' || pathname.startsWith('/usuarios/')
+    || pathname === '/api/users' || pathname.startsWith('/api/users/');
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const secret = process.env.NEXTAUTH_SECRET;
-  const authed = Boolean(token && secret && await verifySessionToken(secret, token));
+  const session = token && secret ? await readSessionToken(secret, token) : null;
+  const authed = session !== null;
 
   if (PUBLIC_PATHS.has(pathname)) {
     // Ya logueado y visitando /login → directo a la mesa.
@@ -25,6 +33,13 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/', req.url));
     }
     return NextResponse.next();
+  }
+
+  if (authed && isAdminOnly(pathname) && session.role !== 'admin') {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Solo el administrador puede gestionar usuarios' }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
   if (authed) return NextResponse.next();

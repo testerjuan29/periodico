@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { notifyN8n } from '@/lib/notifyN8n';
+import { getSessionUser } from '@/lib/currentUser';
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const actor = process.env.ADMIN_EMAIL ?? 'admin';
+  const actor = (await getSessionUser())?.email ?? 'sistema';
 
   // UPDATE atómico: solo transita si el estado actual es 'pending'.
   // Previene doble-aprobación y race conditions entre pestañas/usuarios.

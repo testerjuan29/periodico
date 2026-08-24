@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { getSessionUser } from '@/lib/currentUser';
 
 const patchSchema = z.object({
   wpTitle:      z.string().optional(),
@@ -67,7 +68,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   await prisma.auditLog.create({
     data: {
       publicationId: id,
-      actorEmail: process.env.ADMIN_EMAIL,
+      actorEmail: (await getSessionUser())?.email ?? 'sistema',
       action: 'edit',
       payload: { changed },
     },

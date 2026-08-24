@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { notifyN8n } from '@/lib/notifyN8n';
+import { getSessionUser } from '@/lib/currentUser';
 
 const bodySchema = z.object({
   scheduledAt: z.string().min(1),
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }, { status: 400 });
   }
 
-  const actor = process.env.ADMIN_EMAIL ?? 'admin';
+  const actor = (await getSessionUser())?.email ?? 'sistema';
 
   // Solo se puede programar desde 'pending'. Si ya está scheduled, aprobada o publicada, no.
   const result = await prisma.publication.updateMany({

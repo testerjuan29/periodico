@@ -7,6 +7,7 @@ import { CurrentDate } from '@/components/CurrentDate';
 import { NavTabs } from '@/components/NavTabs';
 import { UserMenu } from '@/components/UserMenu';
 import { DeferredGuard } from '@/components/DeferredGuard';
+import { getSessionUser } from '@/lib/currentUser';
 import './globals.css';
 
 const fraunces = Fraunces({
@@ -36,7 +37,8 @@ export const metadata: Metadata = {
   description: 'Sistema editorial de aprobación · PaginaUno.Do',
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const session = await getSessionUser();
   return (
     <html lang="es" className={`${fraunces.variable} ${instrument.variable} ${mono.variable} h-full`}>
       {/* El escritorio de triage es un split-pane que llena la ventana: el body
@@ -58,7 +60,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <NavTabs />
           </Suspense>
           <CurrentDate />
-          <UserMenu user={process.env.ADMIN_USER ?? 'editor'} />
+          <UserMenu user={session?.name ?? ''} isAdmin={session?.role === 'admin'} />
         </header>
         <main className="flex min-h-0 flex-1 flex-col">{children}</main>
         <DeferredGuard />
