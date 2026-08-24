@@ -280,7 +280,7 @@ function InstagramPreview({ igCaption, hashtags, wpPostUrl, siteUrl, imgSrc }: P
         <div className="text-meta font-semibold text-ink">paginauno.do</div>
       </div>
       {imgSrc && (
-        <img src={imgSrc} alt="" className="aspect-square w-full object-cover" loading="lazy" />
+        <img src={imgSrc} alt="" className="aspect-[4/5] w-full object-cover" loading="lazy" />
       )}
       <div className="p-4">
         <div className="whitespace-pre-wrap text-meta leading-relaxed text-ink/90">

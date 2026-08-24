@@ -200,7 +200,7 @@
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "// No hay imagen adjunta — usar placeholder (imagen aleatoria distinta cada vez)\nconst pub = $input.first().json;\nconst seed = Math.floor(Math.random() * 1000000);\nreturn {\n  ...pub,\n  public_image_url: `https://picsum.photos/seed/${seed}/1080/720`,\n};"
+        "jsCode": "// No hay imagen adjunta — usar placeholder (imagen aleatoria distinta cada vez)\nconst pub = $input.first().json;\nconst seed = Math.floor(Math.random() * 1000000);\nreturn {\n  ...pub,\n  public_image_url: `https://picsum.photos/seed/${seed}/1080/1350`,\n};"
       },
       "id": "b3a3e003-0003-4003-8003-000000000045",
       "name": "Set Placeholder URL",
@@ -266,7 +266,7 @@
         "url": "={{ $env.IMAGE_RENDERER_URL }}/render",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"template\": \"article\",\n  \"vars\": {\n    \"title\": {{ JSON.stringify($('Parse JSON').item.json.content.wp_title) }},\n    \"category\": {{ JSON.stringify(($('Parse JSON').item.json.content.wp_categories || [])[0] || 'Actualidad') }},\n    \"date\": {{ JSON.stringify($now.format('dd LLL yyyy')) }},\n    \"image_url\": {{ JSON.stringify($('Merge Image Branches').item.json.public_image_url) }}\n  },\n  \"width\": 1080,\n  \"height\": 1080\n}",
+        "jsonBody": "={\n  \"template\": \"article\",\n  \"vars\": {\n    \"title\": {{ JSON.stringify($('Parse JSON').item.json.content.wp_title) }},\n    \"category\": {{ JSON.stringify(($('Parse JSON').item.json.content.wp_categories || [])[0] || 'Actualidad') }},\n    \"date\": {{ JSON.stringify($now.format('dd LLL yyyy')) }},\n    \"image_url\": {{ JSON.stringify($('Merge Image Branches').item.json.public_image_url) }}\n  },\n  \"width\": 1080,\n  \"height\": 1350\n}",
         "options": {}
       },
       "id": "b3a3e003-0003-4003-8003-000000000005",

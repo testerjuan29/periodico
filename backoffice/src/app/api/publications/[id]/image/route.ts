@@ -77,8 +77,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         date:      formatDate(pub.receivedAt),
         image_url: heroUrl,
       },
+      // Formato 4:5 vertical — la plantilla oficial del cliente (1080x1350)
       width: 1080,
-      height: 1080,
+      height: 1350,
     }),
   });
 
