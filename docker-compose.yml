@@ -72,6 +72,8 @@ services:
       IMAGE_DEFAULT_TEMPLATE: ${IMAGE_DEFAULT_TEMPLATE:-article}
       IMAGE_DEFAULT_WIDTH: ${IMAGE_DEFAULT_WIDTH:-1080}
       IMAGE_DEFAULT_HEIGHT: ${IMAGE_DEFAULT_HEIGHT:-1350}
+      # Slide 2 del carrusel de IG/FB (template estatico "Siguenos")
+      CAROUSEL_SLIDE_TEMPLATE: ${CAROUSEL_SLIDE_TEMPLATE:-slide-siguenos}
     ports:
       - "5678:5678"
     volumes:

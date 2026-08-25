@@ -251,8 +251,10 @@ function FacebookPreview({ fbCaption, wpPostUrl, siteUrl, imgSrc }: Props & { im
       </div>
       <ReadMoreLine wpPostUrl={wpPostUrl ?? null} siteUrl={siteUrl} />
       {imgSrc && (
-        <div className="flex justify-center border-t border-divider bg-subtle/40">
-          <img src={imgSrc} alt="" className="max-h-[300px] w-auto object-contain" />
+        // Post multi-foto: portada + slide "Síguenos", como los publica FB.
+        <div className="grid grid-cols-2 gap-0.5 border-t border-divider bg-subtle/40">
+          <img src={imgSrc} alt="" className="aspect-[4/5] w-full object-cover" />
+          <img src="/slide-siguenos.png" alt="" className="aspect-[4/5] w-full bg-surface object-cover" />
         </div>
       )}
     </div>
@@ -280,7 +282,17 @@ function InstagramPreview({ igCaption, hashtags, wpPostUrl, siteUrl, imgSrc }: P
         <div className="text-meta font-semibold text-ink">paginauno.do</div>
       </div>
       {imgSrc && (
-        <img src={imgSrc} alt="" className="aspect-[4/5] w-full object-cover" loading="lazy" />
+        <div className="relative">
+          <img src={imgSrc} alt="" className="aspect-[4/5] w-full object-cover" loading="lazy" />
+          {/* Sale como carrusel: portada + slide "Síguenos" */}
+          <span className="absolute right-2 top-2 rounded-full bg-ink/70 px-2 py-0.5 font-mono text-micro font-semibold text-paper">
+            1/2
+          </span>
+          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-paper shadow" />
+            <span className="h-1.5 w-1.5 rounded-full bg-paper/50 shadow" />
+          </div>
+        </div>
       )}
       <div className="p-4">
         <div className="whitespace-pre-wrap text-meta leading-relaxed text-ink/90">

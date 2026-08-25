@@ -27,7 +27,7 @@
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const item = $input.first().json;\nconst caption = String(item.fb_caption || '').trim();\nconst wpUrl = String(item.wp_post_url || '').trim();\n// Estilo editorial de PaginaUno: \"Leer más en <enlace>\" antes de cualquier hashtag\nconst fullCaption = wpUrl ? `${caption}\\n\\nLeer más en ${wpUrl}` : caption;\nreturn { ...item, full_caption: fullCaption };"
+        "jsCode": "const item = $input.first().json;\nconst caption = String(item.fb_caption || '').trim();\nconst wpUrl = String(item.wp_post_url || '').trim();\n// Estilo editorial de PaginaUno: \"Leer más en <enlace>\" antes de cualquier hashtag\nconst fullCaption = wpUrl ? `${caption}\\n\\nLeer más en ${wpUrl}` : caption;\n// URL publica de la portada — Facebook la descarga directo del backoffice.\nconst base = String($env.BACKOFFICE_PUBLIC_URL || '').replace(/\\/$/, '');\nif (!/^https:\\/\\//.test(base)) {\n  throw new Error('BACKOFFICE_PUBLIC_URL debe ser una URL https publica. Valor: ' + base);\n}\nconst portadaUrl = base + '/api/image?path=' + encodeURIComponent(item.image_url);\nreturn { ...item, full_caption: fullCaption, portada_public_url: portadaUrl };"
       },
       "id": "c5a5e005-0005-4005-8005-000000000003",
       "name": "Build Caption",
@@ -37,22 +37,32 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.BACKOFFICE_INTERNAL_URL }}/api/image?path={{ encodeURIComponent($json.image_url) }}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file",
-              "outputPropertyName": "data"
-            }
-          }
-        }
+        "method": "POST",
+        "url": "={{ $env.IMAGE_RENDERER_URL }}/render",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"template\": {{ JSON.stringify($env.CAROUSEL_SLIDE_TEMPLATE || 'slide-siguenos') }},\n  \"vars\": {},\n  \"width\": {{ Number($env.IMAGE_DEFAULT_WIDTH) || 1080 }},\n  \"height\": {{ Number($env.IMAGE_DEFAULT_HEIGHT) || 1350 }}\n}",
+        "options": {}
       },
-      "id": "c5a5e005-0005-4005-8005-000000000004",
-      "name": "Download Image",
+      "id": "c5a5e005-0005-4005-8005-000000000010",
+      "name": "Render Slide",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [840, 300]
+      "position": [840, 300],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// URL publica del slide \"Siguenos\" recien renderizado.\nconst slide = $input.first().json;\nconst base = String($env.BACKOFFICE_PUBLIC_URL || '').replace(/\\/$/, '');\nreturn {\n  slide_public_url: base + '/api/image?path=' + encodeURIComponent(slide.url),\n};"
+      },
+      "id": "c5a5e005-0005-4005-8005-000000000011",
+      "name": "Build Slide URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 300]
     },
     {
       "parameters": {
@@ -62,9 +72,58 @@
         "contentType": "multipart-form-data",
         "bodyParameters": {
           "parameters": [
-            { "name": "caption", "value": "={{ $('Build Caption').item.json.full_caption }}" },
-            { "name": "access_token", "value": "={{ $env.META_PAGE_ACCESS_TOKEN }}" },
-            { "parameterType": "formBinaryData", "name": "source", "inputDataFieldName": "data" }
+            { "name": "url",          "value": "={{ $('Build Caption').item.json.portada_public_url }}" },
+            { "name": "published",    "value": "false" },
+            { "name": "access_token", "value": "={{ $env.META_PAGE_ACCESS_TOKEN }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c5a5e005-0005-4005-8005-000000000012",
+      "name": "Upload Foto Portada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v20.0/{{ $env.META_PAGE_ID }}/photos",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "url",          "value": "={{ $('Build Slide URL').item.json.slide_public_url }}" },
+            { "name": "published",    "value": "false" },
+            { "name": "access_token", "value": "={{ $env.META_PAGE_ACCESS_TOKEN }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c5a5e005-0005-4005-8005-000000000013",
+      "name": "Upload Foto Slide",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v20.0/{{ $env.META_PAGE_ID }}/feed",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "message",           "value": "={{ $('Build Caption').item.json.full_caption }}" },
+            { "name": "attached_media[0]", "value": "={{ JSON.stringify({ media_fbid: $('Upload Foto Portada').item.json.id }) }}" },
+            { "name": "attached_media[1]", "value": "={{ JSON.stringify({ media_fbid: $('Upload Foto Slide').item.json.id }) }}" },
+            { "name": "access_token",      "value": "={{ $env.META_PAGE_ACCESS_TOKEN }}" }
           ]
         },
         "options": {}
@@ -73,7 +132,10 @@
       "name": "Publish to FB",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1040, 300]
+      "position": [1640, 300],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -85,7 +147,7 @@
       "name": "Save FB IDs",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1240, 300],
+      "position": [1840, 300],
       "credentials": {
         "postgres": { "id": "REPLACE_WITH_POSTGRES_CRED_ID", "name": "Postgres Periodico" }
       }
@@ -99,9 +161,18 @@
       "main": [[{ "node": "Build Caption", "type": "main", "index": 0 }]]
     },
     "Build Caption": {
-      "main": [[{ "node": "Download Image", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Render Slide", "type": "main", "index": 0 }]]
     },
-    "Download Image": {
+    "Render Slide": {
+      "main": [[{ "node": "Build Slide URL", "type": "main", "index": 0 }]]
+    },
+    "Build Slide URL": {
+      "main": [[{ "node": "Upload Foto Portada", "type": "main", "index": 0 }]]
+    },
+    "Upload Foto Portada": {
+      "main": [[{ "node": "Upload Foto Slide", "type": "main", "index": 0 }]]
+    },
+    "Upload Foto Slide": {
       "main": [[{ "node": "Publish to FB", "type": "main", "index": 0 }]]
     },
     "Publish to FB": {
